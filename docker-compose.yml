@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fitai-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: treinos-api
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d treinos-api"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: 
+      context: ./Project-Gest-o-de-Treinos
+      dockerfile: Dockerfile
+    container_name: fitai-backend
+    ports:
+      - "8081:8081"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/treinos-api
+      - PORT=8081
+      - NODE_ENV=development
+      - BETTER_AUTH_URL=http://localhost:8081
+      - BETTER_AUTH_SECRET=secret32characterslongfortesting!!
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./Project-Gest-o-de-Treinos:/app
+      - /app/node_modules
+      - /app/src/generated
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    command: sh -c "npx prisma generate && npx prisma migrate dev --name init && npm run dev"
+
+  frontend:
+    build:
+      context: ./fit-ai-frontend
+      dockerfile: Dockerfile
+    container_name: fitai-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8081
+      - INTERNAL_API_URL=http://backend:8081
+      - BETTER_AUTH_URL=http://localhost:3000
+      - NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+    volumes:
+      - ./fit-ai-frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
