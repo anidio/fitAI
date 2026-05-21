@@ -299,6 +299,147 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
     },
   });
 
+  // 1. NOVO ENDPOINT B2B: Listar todos os planos de treino marcados como template corporativo
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "GET",
+    url: "/templates",
+    schema: {
+      tags: ["Workout Plan B2B"],
+      summary: "Personal lista os templates de treinos disponiveis no sistema",
+      response: {
+        200: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+          description: z.string().nullable(),
+        })),
+        401: ErrorSchema,
+        500: ErrorSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        const session = await auth.api.getSession({
+          headers: fromNodeHeaders(request.headers),
+        });
+
+        if (!session) {
+          return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
+        }
+
+        // Busca no banco todos os planos configurados como template genérico
+        const templates = await prisma.workoutPlan.findMany({
+          where: {
+            isTemplate: true,
+          },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        });
+
+        return reply.status(200).send(templates);
+      } catch (error) {
+        app.log.error(error);
+        return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
+      }
+    },
+  });
+
+  // 2. NOVO ENDPOINT B2B: Personal vincula um template existente a um aluno usando o e-mail
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/assign",
+    schema: {
+      tags: ["Workout Plan B2B"],
+      summary: "Personal clona um template de treino e vincula ao e-mail de um aluno matriculado",
+      body: z.object({
+        templateId: z.string(),
+        studentEmail: z.string().email("E-mail de aluno invalido"),
+      }),
+      response: {
+        201: z.object({ success: z.boolean(), message: z.string() }),
+        401: ErrorSchema,
+        404: ErrorSchema,
+        500: ErrorSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        const session = await auth.api.getSession({
+          headers: fromNodeHeaders(request.headers),
+        });
+
+        if (!session) {
+          return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
+        }
+
+        const { templateId, studentEmail } = request.body;
+
+        // 1. Procura o Aluno pelo e-mail no sistema corporativo
+        const student = await prisma.user.findUnique({
+          where: { email: studentEmail },
+        });
+
+        if (!student) {
+          return reply.status(404).send({ error: "Aluno nao encontrado com este e-mail", code: "NOT_FOUND" });
+        }
+
+        // 2. Busca a estrutura completa do modelo (WorkoutPlan -> WorkoutDays -> Exercises)
+        const templatePlan = await prisma.workoutPlan.findUnique({
+          where: { id: templateId },
+          include: {
+            workoutDays: {
+              include: {
+                workoutDayExercises: true,
+              },
+            },
+          },
+        });
+
+        if (!templatePlan) {
+          return reply.status(404).send({ error: "Template de treino nao encontrado", code: "NOT_FOUND" });
+        }
+
+        // 3. CLONAGEM CIRÚRGICA: Cria o plano para o Aluno desvinculando a flag 'isTemplate'
+        await prisma.workoutPlan.create({
+          data: {
+            name: templatePlan.name,
+            description: templatePlan.description,
+            isTemplate: false, // Esse agora pertence ao Aluno de forma fixa
+            userId: student.id, // ID do Aluno matriculado
+            creatorId: session.user.id, // ID do Personal Trainer que vinculou
+            workoutDays: {
+              create: templatePlan.workoutDays.map((day) => ({
+                name: day.name,
+                weekDay: day.weekDay,
+                estimatedDurationInSeconds: day.estimatedDurationInSeconds,
+                coverImageUrl: day.coverImageUrl,
+                workoutDayExercises: {
+                  create: day.workoutDayExercises.map((exercise) => ({
+                    exerciseId: exercise.exerciseId,
+                    repetitions: exercise.repetitions,
+                    sets: exercise.sets,
+                    restTimeInSeconds: exercise.restTimeInSeconds,
+                    order: exercise.order,
+                  })),
+                },
+              })),
+            },
+          },
+        });
+
+        return reply.status(201).send({ 
+          success: true, 
+          message: `Plano '${templatePlan.name}' clonado e atribuido com sucesso para ${student.name || studentEmail}!` 
+        });
+      } catch (error) {
+        app.log.error(error);
+        return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
+      }
+    },
+  });
+
   app.withTypeProvider<ZodTypeProvider>().route({
     method: "PATCH",
     url: "/:workoutPlanId/days/:workoutDayId/sessions/:sessionId",

@@ -1,8 +1,10 @@
 import { fromNodeHeaders } from "better-auth/node";
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
+import z from "zod";
 
 import { auth } from "../lib/auth.js";
+import { prisma } from "../lib/db.js"; // Importa a conexão com o banco
 import {
   ErrorSchema,
   UpsertUserTrainDataBodySchema,
@@ -13,6 +15,8 @@ import { GetUserTrainData } from "../usecases/GetUserTrainData.js";
 import { UpsertUserTrainData } from "../usecases/UpsertUserTrainData.js";
 
 export const meRoutes = async (app: FastifyInstance) => {
+  
+  // 1. Endpoint Existente: Buscar dados do usuário
   app.withTypeProvider<ZodTypeProvider>().route({
     method: "GET",
     url: "/",
@@ -53,6 +57,7 @@ export const meRoutes = async (app: FastifyInstance) => {
     },
   });
 
+  // 2. Endpoint Existente: Atualizar peso/altura
   app.withTypeProvider<ZodTypeProvider>().route({
     method: "PUT",
     url: "/",
@@ -88,6 +93,54 @@ export const meRoutes = async (app: FastifyInstance) => {
         });
 
         return reply.status(200).send(result);
+      } catch (error) {
+        app.log.error(error);
+        return reply.status(500).send({
+          error: "Internal server error",
+          code: "INTERNAL_SERVER_ERROR",
+        });
+      }
+    },
+  });
+
+  // 3. NOVO ENDPOINT B2B: Vincular a academia selecionada ao Aluno
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "PATCH",
+    url: "/gym",
+    schema: {
+      tags: ["Me B2B"],
+      summary: "Vincular unidade de academia ao usuario logado",
+      body: z.object({
+        gymId: z.string(),
+      }),
+      response: {
+        200: z.object({ success: z.boolean(), gymId: z.string() }),
+        401: ErrorSchema,
+        500: ErrorSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        const session = await auth.api.getSession({
+          headers: fromNodeHeaders(request.headers),
+        });
+        
+        if (!session) {
+          return reply.status(401).send({
+            error: "Unauthorized",
+            code: "UNAUTHORIZED",
+          });
+        }
+
+        const { gymId } = request.body;
+
+        // Atualiza a tabela User no banco vinculando o ID corporativo da academia
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: { gymId },
+        });
+
+        return reply.status(200).send({ success: true, gymId });
       } catch (error) {
         app.log.error(error);
         return reply.status(500).send({

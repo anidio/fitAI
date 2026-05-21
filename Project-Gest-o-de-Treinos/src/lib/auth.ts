@@ -12,5 +12,23 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  // ADICIONADO: Mapeamento de campos adicionais para o modelo B2B no Better-Auth
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: false,
+        defaultValue: "USER", // Aluno por padrão
+      },
+      gymId: {
+        type: "string",
+        required: false,
+      },
+      injuryNotes: {
+        type: "string",
+        required: false,
+      }
+    }
+  },
   plugins: [openAPI()],
 });

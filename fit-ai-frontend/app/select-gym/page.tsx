@@ -1,102 +1,145 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import Image from "next/image";
+
+type GymOption = {
+  id: string;
+  name: string;
+};
 
 export default function SelectGymPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [gyms, setGyms] = useState<GymOption[]>([]);
+  const [selectedGym, setSelectedGym] = useState("");
+  const [error, setError] = useState("");
 
-  const handleConfirm = async () => {
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchGyms = async () => {
+      try {
+        const response = await fetch("http://localhost:8081/gyms", {
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          throw new Error("Falha ao buscar academias.");
+        }
+
+        const payload = await response.json();
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.gyms)
+          ? payload.gyms
+          : [];
+
+        if (mounted) {
+          setGyms(list);
+        }
+      } catch (fetchError) {
+        console.error("Erro ao carregar academias:", fetchError);
+        if (mounted) {
+          setError("Não foi possível carregar as unidades. Atualize a página.");
+        }
+      }
+    };
+
+    fetchGyms();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleConfirmGym = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGym) return;
     setLoading(true);
+
     try {
-      // Fazemos a chamada para atualizar a academia do usuário
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
-      const response = await fetch(`${apiUrl}/me/gym`, {
-        method: 'PATCH',
+      // CORREÇÃO: Usando a função nativa 'fetch' (letras minúsculas) do navegador.
+      // Sem nenhuma referência a 'customFetch'!
+      const response = await fetch("http://localhost:8081/me/gym", {
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ gymId: 'demo-gym-id' }),
-        credentials: "include", 
+        body: JSON.stringify({ gymId: selectedGym }),
+        credentials: "include", // Anexa os cookies de sessão locais do Better-Auth
       });
 
-      // Independente do sucesso da API no modo demo, vamos seguir o fluxo para não travar o usuário
+      if (!response.ok) {
+        throw new Error("Falha ao vincular academia.");
+      }
+
+      router.refresh();
       router.push("/");
-    } catch (error) {
-      console.error("Erro ao selecionar academia:", error);
-      // Fallback para não travar o fluxo em um projeto de faculdade
-      router.push("/");
+    } catch (fetchError) {
+      console.error("Erro ao vincular academia:", fetchError);
+      setError("Erro ao salvar unidade. Verifique se o servidor backend está ativo.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="relative flex min-h-svh flex-col bg-black overflow-hidden">
-      {/* Background Map - Simulando com imagem ou div escura */}
-      <div className="absolute inset-0 bg-[#1a1c1e]">
-        <Image
-          src="/login-bg.png"
-          alt="Map"
-          fill
-          className="object-cover opacity-40 grayscale"
-        />
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-black px-4">
+      <div className="w-full max-w-[400px] bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-2xl text-center">
         
-        {/* FIT.AI Pin Overlay */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative">
-            <div className="absolute -inset-4 rounded-full bg-blue-500/20 animate-ping" />
-            <div className="relative h-16 w-16 rounded-full bg-blue-600 flex items-center justify-center border-4 border-white shadow-2xl">
-              <span className="text-white font-bold text-xs">FIT.AI</span>
-            </div>
-            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[12px] border-t-blue-600" />
-          </div>
+        <div className="mb-6 flex justify-center">
+          <Image
+            src="/fit-ai-logo.svg"
+            alt="Fit.AI"
+            width={50}
+            height={50}
+          />
         </div>
 
-        {/* Other Pins */}
-        <div className="absolute top-1/3 left-1/4">
-          <MapPin className="text-red-500 h-6 w-6" />
-        </div>
-        <div className="absolute bottom-1/3 right-1/4">
-          <MapPin className="text-red-500 h-6 w-6" />
-        </div>
-      </div>
+        <h2 className="text-xl font-bold text-white mb-2">Confirme sua Academia</h2>
+        <p className="text-xs text-zinc-400 mb-6">
+          Selecione abaixo a unidade corporativa em que você se matriculou para liberar seu plano de treino.
+        </p>
 
-      <div className="flex-1" />
-
-      {/* Bottom Card */}
-      <div className="relative z-10 px-5 pb-10">
-        <div className="bg-[#111214] border border-white/10 rounded-3xl p-6 shadow-2xl">
-          <div className="flex flex-col gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-white font-bold text-xl">FIT</span>
-                <span className="text-blue-500 font-bold text-xl">.AI</span>
-              </div>
-              <h2 className="text-white text-lg font-semibold uppercase tracking-tight">
-                Selecione sua academia
-              </h2>
-              <p className="text-gray-400 text-sm mt-1">
-                Unidade Recife - Boa Viagem
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 text-gray-500 text-xs">
-              <Navigation className="h-3 w-3" />
-              <span>Baseado na sua localização atual</span>
-            </div>
-
-            <Button
-              onClick={handleConfirm}
-              disabled={loading}
-              className="w-full h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg shadow-blue-600/20"
+        <form onSubmit={handleConfirmGym} className="flex flex-col gap-4 text-left">
+          <div>
+            <Label className="text-xs text-zinc-300">Unidades Disponíveis</Label>
+            <select
+              value={selectedGym}
+              onChange={(e) => setSelectedGym(e.target.value)}
+              required
+              className="w-full bg-zinc-800 border border-zinc-700 text-white mt-1 h-12 rounded-xl px-3 text-sm focus:outline-none"
             >
-              {loading ? "Confirmando..." : "Confirmar Unidade"}
-            </Button>
+              <option value="">Selecione sua unidade...</option>
+              {gyms.map((gym) => (
+                <option key={gym.id} value={gym.id}>
+                  {gym.name}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
+
+          {error && (
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={!selectedGym || loading}
+            className="w-full h-12 rounded-xl bg-primary text-black font-semibold hover:bg-primary/90 mt-2"
+          >
+            {loading ? "Confirmando..." : "Confirmar e Entrar"}
+          </Button>
+        </form>
+
+        {gyms.length === 0 && !error && (
+          <p className="mt-4 text-xs text-zinc-500">Carregando unidades disponíveis...</p>
+        )}
       </div>
     </div>
   );

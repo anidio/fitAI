@@ -13,21 +13,50 @@ datasource db {
   provider = "postgresql"
 }
 
+// 1. Enum para Controle de Perfis (Roles) do Ecossistema B2B
+enum UserRole {
+  USER          // Aluno / Cliente final
+  PERSONAL      // Personal Trainer / Instrutor
+  GYM_OWNER     // Gestor / Dono da Academia
+}
+
+model Gym {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @db.Timestamptz()
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+  
+  // Relacionamentos
+  users     User[]   // Uma academia abriga múltiplos alunos, personais e gestores
+}
+
 model User {
   id                  String        @id
-  workoutPlans        WorkoutPlan[]
   name                String
   email               String
   emailVerified       Boolean       @default(false)
   image               String?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
-  sessions            Session[]
-  accounts            Account[]
+  
+  // Controle de Perfil e Vínculo Corporativo
+  role                UserRole      @default(USER)
+  gymId               String?
+  gym                 Gym?          @relation(fields: [gymId], references: [id], onDelete: SetNull)
+
+  // Dados Físicos (Coletados pela IA no chat e exibidos no perfil)
   weightInGrams       Int?
   heightInCentimeters Int?
   age                 Int?
-  bodyFatPercentage   Int? // 100 representa 100% 
+  bodyFatPercentage   Int?          // 100 representa 100%
+  injuryNotes         String?       // Adicionado para a IA saber o histórico de lesões e dores
+
+  // Relacionamentos operacionais
+  workoutPlans        WorkoutPlan[] @relation("UserPlans") // Planos associados a este usuário como aluno
+  createdTemplates    WorkoutPlan[] @relation("CreatedByPersonal") // Templates que este usuário criou como Personal
+  
+  sessions            Session[]
+  accounts            Account[]
 
   @@unique([email])
   @@map("user")
@@ -36,12 +65,20 @@ model User {
 model WorkoutPlan {
   id          String       @id @default(uuid())
   name        String
-  userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workoutDays WorkoutDay[]
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now()) @db.Timestamptz()
   updatedAt   DateTime     @updatedAt @db.Timestamptz()
+
+  // Controle de Atribuição e Templates B2B
+  isTemplate  Boolean      @default(false) // Se 'true', indica que é um template global (ex: Força 1, Emagrecimento 2)
+  
+  userId      String?      // Opcional se for apenas um template global reutilizável
+  user        User?        @relation("UserPlans", fields: [userId], references: [id], onDelete: Cascade)
+  
+  creatorId   String?      // ID do Personal que criou ou montou esse treino para o aluno
+  creator     User?        @relation("CreatedByPersonal", fields: [creatorId], references: [id], onDelete: SetNull)
+
+  workoutDays WorkoutDay[]
 }
 
 enum WeekDay {

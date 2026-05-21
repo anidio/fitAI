@@ -15,6 +15,8 @@ services:
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fitai-network
 
   backend:
     build: 
@@ -24,22 +26,26 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/treinos-api
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/treinos-api?schema=public
       - PORT=8081
       - NODE_ENV=development
       - BETTER_AUTH_URL=http://localhost:8081
       - BETTER_AUTH_SECRET=secret32characterslongfortesting!!
+      - BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - ./Project-Gest-o-de-Treinos:/app
       - /app/node_modules
-      - /app/src/generated
     depends_on:
       postgres:
         condition: service_healthy
     stdin_open: true
     tty: true
-    command: sh -c "npx prisma generate && npx prisma migrate dev --name init && npm run dev"
+    command: sh -c "npx prisma generate && npx prisma db push && npm run dev"
+    networks:
+      - fitai-network
 
   frontend:
     build:
@@ -63,6 +69,30 @@ services:
       - backend
     stdin_open: true
     tty: true
+    networks:
+      - fitai-network
+  studio:
+    build:
+      context: ./Project-Gest-o-de-Treinos
+      dockerfile: Dockerfile
+    container_name: fitai-prisma-studio
+    ports:
+      - "5555:5555"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/treinos-api?schema=public
+    volumes:
+      - ./Project-Gest-o-de-Treinos:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npx prisma studio --port 5555 --browser none
+    networks:
+      - fitai-network
 
 volumes:
   postgres_data:
+
+networks:
+  fitai-network:
+    driver: bridge

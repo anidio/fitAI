@@ -1,147 +1,246 @@
 "use client";
 
-import { Search, User2, Upload, FileText, ChevronLeft } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle2, Loader2, AlertTriangle, ChevronLeft, User2, Zap } from "lucide-react";
 
-const STUDENTS = [
-  { id: 1, name: "João Silva", email: "joao@email.com", plan: "Premium com Chatbot", hasFile: false },
-  { id: 2, name: "Maria Santos", email: "maria@email.com", plan: "Premium com Chatbot", hasFile: true, fileName: "treino_maria_abril.docx", date: "12/04/2026" },
-  { id: 3, name: "Carlos Oliveira", email: "carlos@email.com", plan: "Premium com Chatbot", hasFile: false },
-  { id: 4, name: "Ana Costa", email: "ana@email.com", plan: "Premium com Chatbot", hasFile: true, fileName: "plano_treino_ana.docx", date: "09/04/2026" },
-  { id: 5, name: "Pedro Alves", email: "pedro@email.com", plan: "Premium com Chatbot", hasFile: false },
-];
+type WorkoutTemplate = {
+  id: string;
+  name: string;
+  description?: string;
+};
 
 export function PersonalDashboard() {
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const [studentEmail, setStudentEmail] = useState("");
+  const [templateId, setTemplateId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadTemplates = async () => {
+      try {
+        const response = await fetch("http://localhost:8081/workout-plans/templates", {
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar os templates de treino.");
+        }
+
+        const payload = await response.json();
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.templates)
+          ? payload.templates
+          : [];
+
+        if (mounted) {
+          setTemplates(list);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar templates:", error);
+        if (mounted) {
+          setErrorMessage("Falha ao carregar templates. Atualize para tentar novamente.");
+        }
+      } finally {
+        if (mounted) {
+          setLoadingTemplates(false);
+        }
+      }
+    };
+
+    loadTemplates();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleAssignWorkout = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!studentEmail.trim() || !templateId) return;
+
+    setLoading(true);
+    setSuccessMessage("");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch("http://localhost:8081/workout-plans/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ templateId, studentEmail: studentEmail.trim() }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "Falha ao vincular treino ao aluno.");
+      }
+
+      setSuccessMessage("Treino vinculado com sucesso ao aluno.");
+      setStudentEmail("");
+      setTemplateId("");
+    } catch (error: any) {
+      console.error("Erro ao vincular treino:", error);
+      setErrorMessage(error.message || "Erro interno ao vincular treino.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-svh flex-col bg-background pb-10">
-      {/* Header */}
-      <div className="relative h-[180px] w-full overflow-hidden rounded-b-[32px] bg-black p-6">
-        <div className="absolute inset-0 opacity-40">
-           <div className="h-full w-full bg-gradient-to-b from-transparent to-black" />
-        </div>
-        
-        <div className="relative z-10 flex flex-col gap-4 pt-2">
-          <Link href="/auth" className="flex items-center gap-1 text-sm text-white/70">
+    <div className="min-h-screen bg-background pb-20">
+      <div className="relative overflow-hidden bg-black pb-12">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.35),_transparent_40%)]" />
+        <div className="relative px-5 py-8">
+          <Link href="/auth" className="inline-flex items-center gap-2 text-sm text-white/70">
             <ChevronLeft className="size-4" /> Sair
           </Link>
-          <div>
-            <p className="font-heading text-xs uppercase tracking-widest text-blue-500">FIT.AI</p>
-            <h1 className="font-heading text-2xl font-bold text-white">Painel do Personal</h1>
-            <p className="text-sm text-white/60">Gerencie os treinos dos seus alunos</p>
+          <div className="mt-6">
+            <p className="text-xs uppercase tracking-[0.35em] text-blue-400">Fit.AI</p>
+            <h1 className="text-3xl font-bold text-white">Painel do Personal Trainer</h1>
+            <p className="mt-2 max-w-2xl text-sm text-zinc-300">
+              Use os modelos de treino já cadastrados e vincule rapidamente novos alunos.
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 px-5 -mt-6 relative z-20">
-        {/* Stats Summary */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">Alunos com Plano Chatbot</span>
-          <Badge className="bg-blue-600 hover:bg-blue-600 rounded-full px-3">{STUDENTS.length} alunos</Badge>
-        </div>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 pt-6">
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+          <Card className="bg-zinc-950 border-zinc-800 text-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                <Zap className="size-5 text-cyan-400" /> Selecionar modelo de treino
+              </CardTitle>
+              <CardDescription>Escolha um template e vincule ao e-mail do aluno matriculado.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleAssignWorkout} className="flex flex-col gap-5">
+                <div className="grid gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="student-email" className="text-xs text-zinc-300">
+                      E-mail do aluno
+                    </Label>
+                    <Input
+                      id="student-email"
+                      type="email"
+                      placeholder="aluno@exemplo.com"
+                      value={studentEmail}
+                      onChange={(e) => setStudentEmail(e.target.value)}
+                      disabled={loading}
+                      required
+                      className="bg-zinc-900 border-zinc-800 text-white"
+                    />
+                  </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input 
-            placeholder="Buscar aluno por nome ou email..." 
-            className="h-12 rounded-2xl border-none bg-muted/50 pl-10 focus-visible:ring-1 focus-visible:ring-blue-500"
-          />
-        </div>
-
-        {/* Students List */}
-        <div className="flex flex-col gap-4">
-          {STUDENTS.map((student) => (
-            <div key={student.id} className="flex flex-col gap-4 rounded-3xl border border-border/50 bg-card p-5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <Avatar className="size-12 bg-blue-600">
-                  <AvatarFallback className="bg-blue-600 text-white">
-                    <User2 className="size-6" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                  <span className="font-semibold text-foreground">{student.name}</span>
-                  <span className="text-xs text-muted-foreground">{student.email}</span>
-                  <Badge variant="secondary" className="mt-1 w-fit bg-blue-50 text-[10px] text-blue-600 hover:bg-blue-50">
-                    {student.plan}
-                  </Badge>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="template-select" className="text-xs text-zinc-300">
+                      Modelo de treino
+                    </Label>
+                    <select
+                      id="template-select"
+                      value={templateId}
+                      onChange={(e) => setTemplateId(e.target.value)}
+                      disabled={loading || loadingTemplates}
+                      required
+                      className="h-12 rounded-xl border border-zinc-800 bg-zinc-900 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <option value="">Selecione um template...</option>
+                      {templates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              </div>
 
-              {student.hasFile ? (
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between rounded-2xl bg-green-50 p-3">
+                {errorMessage && (
+                  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                     <div className="flex items-center gap-2">
-                      <FileText className="size-5 text-green-600" />
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium text-green-700">{student.fileName}</span>
-                        <span className="text-[10px] text-green-600/70">Enviado em {student.date}</span>
+                      <AlertTriangle className="size-4" /> {errorMessage}
+                    </div>
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="size-4" /> {successMessage}
+                    </div>
+                  </div>
+                )}
+
+                <Button type="submit" disabled={loading || loadingTemplates} className="h-12 rounded-xl bg-primary text-black font-semibold hover:bg-primary/90">
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Vinculando...
+                    </>
+                  ) : (
+                    "Vincular Treino"
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-4">
+            <Card className="bg-zinc-950 border-zinc-800 text-white">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Templates Disponíveis</CardTitle>
+                <CardDescription>Modelos de treino globais marcados como template.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {loadingTemplates ? (
+                  <div className="flex items-center gap-2 text-sm text-zinc-400">
+                    <Loader2 className="size-4 animate-spin" /> Carregando templates...
+                  </div>
+                ) : templates.length ? (
+                  templates.map((template) => (
+                    <div key={template.id} className="rounded-3xl border border-zinc-800 bg-zinc-900 p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-semibold text-white">{template.name}</p>
+                          <p className="text-xs text-zinc-500">{template.description ?? "Template de treino global."}</p>
+                        </div>
+                        <Badge className="bg-cyan-500 text-black">Template</Badge>
                       </div>
                     </div>
-                    <Button size="icon" variant="ghost" className="size-8 text-red-500 hover:bg-red-50 hover:text-red-600">
-                      <X className="size-4" />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button variant="outline" className="h-8 text-[10px] rounded-lg border-blue-200 text-blue-600">Plano 1</Button>
-                    <Button variant="outline" className="h-8 text-[10px] rounded-lg border-blue-200 text-blue-600">Plano 2</Button>
-                    <Button variant="outline" className="h-8 text-[10px] rounded-lg border-blue-200 text-blue-600">Plano 3</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  <Button className="h-12 w-full gap-2 rounded-2xl bg-blue-600 text-sm font-semibold hover:bg-blue-700">
-                    <Upload className="size-4" />
-                    Adicionar Plano de Treino (.docx)
-                  </Button>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button variant="outline" className="h-8 text-[10px] rounded-lg border-blue-200 text-blue-600">Plano 1</Button>
-                    <Button variant="outline" className="h-8 text-[10px] rounded-lg border-blue-200 text-blue-600">Plano 2</Button>
-                    <Button variant="outline" className="h-8 text-[10px] rounded-lg border-blue-200 text-blue-600">Plano 3</Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-zinc-400">Nenhum template de treino encontrado. Atualize a página para tentar novamente.</p>
+                )}
+              </CardContent>
+            </Card>
 
-        {/* Info Box */}
-        <div className="rounded-2xl bg-blue-50 p-4">
-          <div className="flex gap-2">
-            <span className="text-lg">📋</span>
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-blue-900">Sobre os Planos de Treino</span>
-              <p className="text-xs leading-relaxed text-blue-800/80">
-                Os arquivos .docx enviados ficam disponíveis para os alunos acessarem no aplicativo. 
-                Mantenha as planilhas atualizadas para garantir o melhor acompanhamento.
-              </p>
-            </div>
+            <Card className="bg-zinc-950 border-zinc-800 text-white">
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500 text-black">
+                    <User2 className="size-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Use o painel para vincular alunos</p>
+                    <p className="text-xs text-zinc-500">O e-mail do aluno deve corresponder ao cadastro do usuário no app.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function X({ className }: { className?: string }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
   );
 }

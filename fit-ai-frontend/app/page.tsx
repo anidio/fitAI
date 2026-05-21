@@ -9,6 +9,7 @@ import { Flame } from "lucide-react";
 import { BottomNav } from "./_components/bottom-nav";
 import { ConsistencyTracker } from "./_components/consistency-tracker";
 import { WorkoutDayCard } from "./_components/workout-day-card";
+import { RoleDashboard } from "./_components/role-dashboard";
 
 export default async function Home() {
   const session = await authClient.getSession({
@@ -17,7 +18,24 @@ export default async function Home() {
     },
   });
 
+  // 1. Bloqueio de segurança padrão: se não tiver logado, vai para a tela de login
   if (!session.data?.user) redirect("/auth");
+
+  // Captura os dados estendidos do usuário logado (como a role e o vínculo da academia)
+  const userRole = (session.data.user as any).role || "USER";
+  const userGymId = (session.data.user as any).gymId;
+
+  // 2. REDIRECIONAMENTO POR PERFIL (B2B):
+  // Se for Personal Trainer ou Gestor, renderiza o painel client-only apropriado
+  if (userRole === "PERSONAL" || userRole === "GYM_OWNER") {
+    return <RoleDashboard userRole={userRole} userGymId={userGymId} />;
+  }
+
+  // 3. FLUXO DO ALUNO (USER):
+  // Se o aluno ainda não confirmou a academia (Passo 2 do novo fluxo), redireciona para a nova tela
+  if (!userGymId) {
+    redirect("/select-gym");
+  }
 
   const today = dayjs();
   const [homeData, trainData] = await Promise.all([
@@ -25,27 +43,25 @@ export default async function Home() {
     getUserTrainData(),
   ]);
 
+  // Se o treino do aluno ainda não foi vinculado pelo personal
   if (homeData.status !== 200) {
-    console.error("Erro ao buscar homeData:", homeData);
-
     return (
-      <div style={{ padding: 20 }}>
-        <h1>Você ainda não tem treino configurado</h1>
-        <p>Vá para o onboarding para começar.</p>
+      <div className="flex min-h-svh flex-col items-center justify-center bg-black p-6 text-center text-white">
+        <h1 className="text-xl font-bold">Aguardando liberação de treino</h1>
+        <p className="text-sm text-zinc-400 mt-2 max-w-xs">
+          Sua conta está ativa na academia! Estamos aguardando o seu Personal Trainer vincular o seu plano de treinos.
+        </p>
+        <BottomNav />
       </div>
     );
   }
-
-  const needsOnboarding =
-    !homeData.data.activeWorkoutPlanId ||
-    (trainData.status === 200 && !trainData.data);
-  if (needsOnboarding) redirect("/onboarding");
 
   const { todayWorkoutDay, workoutStreak, consistencyByDay } = homeData.data;
   const userName = session.data.user.name?.split(" ")[0] ?? "";
 
   return (
     <div className="flex min-h-svh flex-col bg-background pb-24">
+      {/* Banner Principal */}
       <div className="relative flex h-[296px] shrink-0 flex-col items-start justify-between overflow-hidden rounded-b-[20px] px-5 pb-10 pt-5">
         <div className="absolute inset-0" aria-hidden="true">
           <Image
@@ -64,10 +80,7 @@ export default async function Home() {
           />
         </div>
 
-        <p
-          className="relative text-[22px] uppercase leading-[1.15] text-background"
-          style={{ fontFamily: "var(--font-anton)" }}
-        >
+        <p className="relative text-[22px] uppercase leading-[1.15] text-background font-black italic">
           Fit.ai
         </p>
 
@@ -88,6 +101,7 @@ export default async function Home() {
         </div>
       </div>
 
+      {/* Rastreamento de Frequência e Consistência */}
       <div className="flex flex-col gap-3 px-5 pt-5">
         <div className="flex items-center justify-between">
           <h2 className="font-heading text-lg font-semibold text-foreground">
@@ -114,15 +128,18 @@ export default async function Home() {
         </div>
       </div>
 
+      {/* Exibição do Treino do Dia Atual */}
       {todayWorkoutDay && (
         <div className="flex flex-col gap-3 p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-heading text-lg font-semibold text-foreground">
               Treino de Hoje
             </h2>
-            <button className="font-heading text-xs text-primary">
-              Ver treinos
-            </button>
+            <Link href={`/workout-plans/${todayWorkoutDay.workoutPlanId}`}>
+              <button className="font-heading text-xs text-primary">
+                Ver planos
+              </button>
+            </Link>
           </div>
 
           <Link
@@ -141,6 +158,7 @@ export default async function Home() {
         </div>
       )}
 
+      {/* Menu de Navegação Inferior de 5 Ícones */}
       <BottomNav />
     </div>
   );

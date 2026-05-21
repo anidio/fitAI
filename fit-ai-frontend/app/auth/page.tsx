@@ -1,48 +1,33 @@
 import Image from "next/image";
-import { redirect } from "next/navigation";
-import { authClient } from "@/app/_lib/auth-client";
-import { headers } from "next/headers";
-import { SignInWithGoogle } from "./_components/sign-in-with-google";
+import { AuthFlow } from "./_components/auth-flow";
 
-export default async function AuthPage() {
-  const session = await authClient.getSession({
-    fetchOptions: {
-      headers: await headers(),
-    },
-  });
-
-  if (session.data?.user) redirect("/");
-
+export default function AuthPage() {
   return (
-    <div className="relative flex min-h-svh flex-col bg-black">
-      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+    <div className="relative min-h-screen w-full flex flex-col items-center justify-center bg-black px-4 overflow-hidden">
+      {/* Background decorativo */}
+      <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
         <Image
           src="/login-bg.png"
-          alt=""
+          alt="Gym background"
           fill
           className="object-cover"
           priority
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
       </div>
 
-      <div className="relative z-10 flex justify-center pt-12">
-        <Image src="/fit-ai-logo.svg" alt="FIT.AI" width={85} height={38} />
-      </div>
-
-      <div className="flex-1" />
-
-      <div className="relative z-10 flex flex-col items-center gap-15 rounded-t-4xl bg-primary px-5 pb-10 pt-12">
-        <div className="flex w-full flex-col items-center gap-6">
-          <h1 className="w-full text-center font-heading text-[32px] font-semibold leading-[1.05] text-primary-foreground">
-            O app que vai transformar a forma como você treina.
-          </h1>
-
-          <SignInWithGoogle />
+      <div className="relative z-10 w-full max-w-[400px] flex flex-col items-center">
+        {/* Logo */}
+        <div className="mb-8 flex items-center gap-2">
+          <span className="text-2xl font-black italic tracking-wider text-white">
+            FIT.<span className="text-primary">AI</span>
+          </span>
         </div>
 
-        <p className="font-heading text-xs leading-[1.4] text-primary-foreground/70">
-          ©2026 Copyright FIT.AI. Todos os direitos reservados
-        </p>
+        {/* Card do Formulário */}
+        <div className="w-full bg-zinc-900/90 border border-zinc-800 p-6 rounded-2xl shadow-2xl backdrop-blur-md">
+          <AuthFlow />
+        </div>
       </div>
     </div>
   );

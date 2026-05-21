@@ -18,6 +18,7 @@ import { homeRoutes } from "./routes/home.js";
 import { meRoutes } from "./routes/me.js";
 import { statsRoutes } from "./routes/stats.js";
 import { workoutPlanRoutes } from "./routes/workout-plan.js";
+import { gymRoutes } from "./routes/gym.js";
 
 const app = Fastify({
   logger: true,
@@ -45,6 +46,7 @@ await app.register(fastifySwagger, {
 
 await app.register(fastifyCors, {
   origin: ["http://localhost:3000"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   credentials: true,
 });
 
@@ -73,6 +75,7 @@ await app.register(meRoutes, { prefix: "/me" });
 await app.register(statsRoutes, { prefix: "/stats" });
 await app.register(workoutPlanRoutes, { prefix: "/workout-plans" });
 await app.register(aiRoutes, { prefix: "/ai" });
+await app.register(gymRoutes, { prefix: "/gyms" });
 
 app.withTypeProvider<ZodTypeProvider>().route({
   method: "GET",
@@ -140,7 +143,11 @@ app.route({
 });
 
 try {
-  await app.listen({ port: Number(process.env.PORT) || 8081 });
+  // Ajustado: host "0.0.0.0" permite que o Docker mapeie a porta para a sua máquina
+  await app.listen({ 
+    port: Number(process.env.PORT) || 8081, 
+    host: "0.0.0.0" 
+  });
 } catch (err) {
   app.log.error(err);
   process.exit(1);
