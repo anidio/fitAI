@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { authClient } from "@/app/_lib/auth-client";
 import { headers } from "next/headers";
-import { getHomeData, getUserTrainData } from "./_lib/api/fetch-generated";
+import { getHomeData } from "./_lib/api/fetch-generated";
 import dayjs from "dayjs";
 import Image from "next/image";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import { BottomNav } from "./_components/bottom-nav";
 import { ConsistencyTracker } from "./_components/consistency-tracker";
 import { WorkoutDayCard } from "./_components/workout-day-card";
 import { RoleDashboard } from "./_components/role-dashboard";
+import { LogoutButton } from "./profile/_components/logout-button";
 
 export default async function Home() {
   const session = await authClient.getSession({
@@ -38,10 +39,7 @@ export default async function Home() {
   }
 
   const today = dayjs();
-  const [homeData, trainData] = await Promise.all([
-    getHomeData(today.format("YYYY-MM-DD")),
-    getUserTrainData(),
-  ]);
+  const homeData = await getHomeData(today.format("YYYY-MM-DD"));
 
   // Se o treino do aluno ainda não foi vinculado pelo personal
   if (homeData.status !== 200) {
@@ -51,7 +49,7 @@ export default async function Home() {
         <p className="text-sm text-zinc-400 mt-2 max-w-xs">
           Sua conta está ativa na academia! Estamos aguardando o seu Personal Trainer vincular o seu plano de treinos.
         </p>
-        <BottomNav />
+        <BottomNav activePage="home" />
       </div>
     );
   }
@@ -61,6 +59,15 @@ export default async function Home() {
 
   return (
     <div className="flex min-h-svh flex-col bg-background pb-24">
+      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        <p
+          className="text-[22px] uppercase leading-[1.15] text-foreground"
+          style={{ fontFamily: "var(--font-anton)" }}
+        >
+          Fit.ai
+        </p>
+        <LogoutButton />
+      </div>
       {/* Banner Principal */}
       <div className="relative flex h-[296px] shrink-0 flex-col items-start justify-between overflow-hidden rounded-b-[20px] px-5 pb-10 pt-5">
         <div className="absolute inset-0" aria-hidden="true">
@@ -159,7 +166,7 @@ export default async function Home() {
       )}
 
       {/* Menu de Navegação Inferior de 5 Ícones */}
-      <BottomNav />
+      <BottomNav activePage="home" />
     </div>
   );
 }

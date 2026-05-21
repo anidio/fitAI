@@ -150,4 +150,41 @@ export const meRoutes = async (app: FastifyInstance) => {
       }
     },
   });
+
+    // 4. NOVO ENDPOINT: Aplicar planos pendentes atrelados ao e-mail do usuário
+    app.withTypeProvider<ZodTypeProvider>().route({
+      method: "POST",
+      url: "/pending-assignments/apply",
+      schema: {
+        tags: ["Me B2B"],
+        summary: "Aplica planos pendentes que foram atribuídos por e-mail antes do cadastro do usuário",
+        response: {
+          200: z.object({ applied: z.number() }),
+          401: ErrorSchema,
+          500: ErrorSchema,
+        },
+      },
+      handler: async (request, reply) => {
+        try {
+          const session = await auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
+          if (!session) {
+            return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
+          }
+
+          // Find workout plans with pendingEmail equal to user's email and not yet linked
+          const pending = await prisma.workoutPlan.findMany({ where: { pendingEmail: session.user.email } });
+
+          let applied = 0;
+          for (const plan of pending) {
+            await prisma.workoutPlan.update({ where: { id: plan.id }, data: { userId: session.user.id, pendingEmail: null } });
+            applied++;
+          }
+
+          return reply.status(200).send({ applied });
+        } catch (error) {
+          app.log.error(error);
+          return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
+        }
+      },
+    });
 };

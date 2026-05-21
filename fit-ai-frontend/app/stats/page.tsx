@@ -9,6 +9,7 @@ import {
 import dayjs from "dayjs";
 import { CircleCheck, CirclePercent, Hourglass } from "lucide-react";
 import { BottomNav } from "@/app/_components/bottom-nav";
+import { LogoutButton } from "@/app/profile/_components/logout-button";
 import { StreakBanner } from "./_components/streak-banner";
 import { StatsHeatmap } from "./_components/stats-heatmap";
 import { StatCard } from "./_components/stat-card";
@@ -60,13 +61,16 @@ export default async function StatsPage() {
 
   return (
     <div className="flex min-h-svh flex-col bg-background pb-24">
-      <div className="flex h-14 items-center px-5">
+      <div className="flex h-14 items-center justify-between px-5">
         <p
           className="text-[22px] uppercase leading-[1.15] text-foreground"
           style={{ fontFamily: "var(--font-anton)" }}
         >
           Fit.ai
         </p>
+        <div>
+          <LogoutButton />
+        </div>
       </div>
 
       <div className="px-5">

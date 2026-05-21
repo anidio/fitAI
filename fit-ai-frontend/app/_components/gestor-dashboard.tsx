@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Plus, CheckCircle2, Activity, Users, Trophy, Zap } from "lucide-react";
+import { LogoutButton } from "@/app/profile/_components/logout-button";
 
 export function GestorDashboard() {
   const router = useRouter();
@@ -52,12 +53,15 @@ export function GestorDashboard() {
 
   return (
     <div className="min-h-screen bg-black text-white p-6 pb-24">
-      <div className="flex flex-col gap-1 mb-6">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black italic uppercase tracking-wide text-primary leading-tight">
-          Fit.AI
-        </h1>
-        <p className="text-sm md:text-base text-zinc-400">Painel do Gestor — visão geral do sistema</p>
-      </div>
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black italic uppercase tracking-wide text-primary leading-tight">Fit.AI</h1>
+              <p className="text-sm md:text-base text-zinc-400">Painel do Gestor — visão geral do sistema</p>
+            </div>
+            <div>
+              <LogoutButton />
+            </div>
+          </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { BottomNav } from "@/app/_components/bottom-nav";
 import { WorkoutDayCard } from "@/app/_components/workout-day-card";
 import { RestDayCard } from "./_components/rest-day-card";
+import { LogoutButton } from "@/app/profile/_components/logout-button";
 
 const WEEKDAY_ORDER = [
   "MONDAY",
@@ -61,6 +62,13 @@ export default async function WorkoutPlanPage({
 
   return (
     <div className="flex min-h-svh flex-col bg-background pb-24">
+      <div className="flex items-center justify-between px-5 py-4">
+        <Link href="/" className="rounded-full bg-zinc-900 p-3 text-sm font-semibold text-foreground">
+          Voltar
+        </Link>
+        <p className="text-base font-semibold text-foreground">Plano de Treino</p>
+        <LogoutButton />
+      </div>
       <div className="relative flex h-[296px] shrink-0 flex-col items-start justify-between overflow-hidden rounded-b-[20px] px-5 pb-10 pt-5">
         <div className="absolute inset-0" aria-hidden="true">
           <Image

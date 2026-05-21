@@ -76,6 +76,16 @@ export default function SelectGymPage() {
         throw new Error("Falha ao vincular academia.");
       }
 
+      // After linking gym, apply any pending workout plans assigned to this user's email
+      try {
+        await fetch("http://localhost:8081/me/pending-assignments/apply", {
+          method: "POST",
+          credentials: "include",
+        });
+      } catch (e) {
+        console.warn("Falha ao aplicar planos pendentes:", e);
+      }
+
       router.refresh();
       router.push("/");
     } catch (fetchError) {

@@ -15,6 +15,7 @@ import { BackButton } from "./_components/back-button";
 import { ExerciseCard } from "./_components/exercise-card";
 import { StartWorkoutButton } from "./_components/start-workout-button";
 import { CompleteWorkoutButton } from "./_components/complete-workout-button";
+import { LogoutButton } from "@/app/profile/_components/logout-button";
 
 const WEEKDAY_LABELS: Record<string, string> = {
   MONDAY: "SEGUNDA",
@@ -88,7 +89,7 @@ export default async function WorkoutDayPage({
             ? "Treino de Hoje"
             : WEEKDAY_TITLE_LABELS[weekDay]}
         </h1>
-        <div className="size-6" />
+        <LogoutButton />
       </div>
 
       <div className="px-5">

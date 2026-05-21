@@ -9,6 +9,7 @@ import {
   WorkoutPlanNotActiveError,
 } from "../errors/index.js";
 import { auth } from "../lib/auth.js";
+import { prisma } from "../lib/db.js";
 import {
   ErrorSchema,
   GetWorkoutDaySchema,
@@ -376,22 +377,13 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
 
         const { templateId, studentEmail } = request.body;
 
-        // 1. Procura o Aluno pelo e-mail no sistema corporativo
-        const student = await prisma.user.findUnique({
-          where: { email: studentEmail },
-        });
-
-        if (!student) {
-          return reply.status(404).send({ error: "Aluno nao encontrado com este e-mail", code: "NOT_FOUND" });
-        }
-
-        // 2. Busca a estrutura completa do modelo (WorkoutPlan -> WorkoutDays -> Exercises)
+        // 1. Busca a estrutura completa do modelo (WorkoutPlan -> WorkoutDays -> Exercises)
         const templatePlan = await prisma.workoutPlan.findUnique({
           where: { id: templateId },
           include: {
             workoutDays: {
               include: {
-                workoutDayExercises: true,
+                exercises: true,
               },
             },
           },
@@ -399,6 +391,41 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
 
         if (!templatePlan) {
           return reply.status(404).send({ error: "Template de treino nao encontrado", code: "NOT_FOUND" });
+        }
+
+        // 2. Procura o Aluno pelo e-mail no sistema corporativo
+        const student = await prisma.user.findUnique({ where: { email: studentEmail } });
+
+        // If student not found, create a pending assignment
+        if (!student) {
+          await prisma.workoutPlan.create({
+            data: {
+              name: templatePlan.name,
+              description: templatePlan.description,
+              isTemplate: false,
+              pendingEmail: studentEmail,
+              creatorId: session.user.id,
+              workoutDays: {
+                create: templatePlan.workoutDays.map((day) => ({
+                  name: day.name,
+                  weekDay: day.weekDay,
+                  estimatedDurationInSeconds: day.estimatedDurationInSeconds,
+                  coverImageUrl: day.coverImageUrl,
+                  exercises: {
+                    create: day.exercises.map((exercise) => ({
+                      name: exercise.name,
+                      order: exercise.order,
+                      sets: exercise.sets,
+                      reps: exercise.reps,
+                      restTimeInSeconds: exercise.restTimeInSeconds,
+                    })),
+                  },
+                })),
+              },
+            },
+          });
+
+          return reply.status(201).send({ success: true, message: `Aluno nao cadastrado. Plano pendente criado para ${studentEmail}` });
         }
 
         // 3. CLONAGEM CIRÚRGICA: Cria o plano para o Aluno desvinculando a flag 'isTemplate'
@@ -415,13 +442,13 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
                 weekDay: day.weekDay,
                 estimatedDurationInSeconds: day.estimatedDurationInSeconds,
                 coverImageUrl: day.coverImageUrl,
-                workoutDayExercises: {
-                  create: day.workoutDayExercises.map((exercise) => ({
-                    exerciseId: exercise.exerciseId,
-                    repetitions: exercise.repetitions,
-                    sets: exercise.sets,
-                    restTimeInSeconds: exercise.restTimeInSeconds,
+                exercises: {
+                  create: day.exercises.map((exercise) => ({
+                    name: exercise.name,
                     order: exercise.order,
+                    sets: exercise.sets,
+                    reps: exercise.reps,
+                    restTimeInSeconds: exercise.restTimeInSeconds,
                   })),
                 },
               })),
@@ -433,6 +460,69 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
           success: true, 
           message: `Plano '${templatePlan.name}' clonado e atribuido com sucesso para ${student.name || studentEmail}!` 
         });
+      } catch (error) {
+        app.log.error(error);
+        return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
+      }
+    },
+  });
+
+  // 3. NOVO ENDPOINT: Personal lista seus alunos e os treinos atribuídos
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "GET",
+    url: "/my-students",
+    schema: {
+      tags: ["Workout Plan B2B"],
+      summary: "Personal lista seus alunos e treinos atribuídos",
+      response: {
+        200: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+          email: z.string(),
+          workoutPlans: z.array(z.object({
+            id: z.string(),
+            name: z.string(),
+            isActive: z.boolean(),
+          })),
+        })),
+        401: ErrorSchema,
+        500: ErrorSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        const session = await auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
+        if (!session) {
+          return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
+        }
+
+        // Find all workout plans where creatorId is the current personal
+        const plans = await prisma.workoutPlan.findMany({
+          where: { creatorId: session.user.id, isTemplate: false },
+          include: { user: { select: { id: true, name: true, email: true } } },
+        });
+
+        // Group by user
+        const studentMap = new Map<string, any>();
+        for (const plan of plans) {
+          if (plan.user) {
+            if (!studentMap.has(plan.user.id)) {
+              studentMap.set(plan.user.id, {
+                id: plan.user.id,
+                name: plan.user.name,
+                email: plan.user.email,
+                workoutPlans: [],
+              });
+            }
+            studentMap.get(plan.user.id).workoutPlans.push({
+              id: plan.id,
+              name: plan.name,
+              isActive: plan.isActive,
+            });
+          }
+        }
+
+        return reply.status(200).send(Array.from(studentMap.values()));
       } catch (error) {
         app.log.error(error);
         return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });

@@ -65,6 +65,7 @@ model User {
 model WorkoutPlan {
   id          String       @id @default(uuid())
   name        String
+  description String?
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now()) @db.Timestamptz()
   updatedAt   DateTime     @updatedAt @db.Timestamptz()
@@ -77,6 +78,9 @@ model WorkoutPlan {
   
   creatorId   String?      // ID do Personal que criou ou montou esse treino para o aluno
   creator     User?        @relation("CreatedByPersonal", fields: [creatorId], references: [id], onDelete: SetNull)
+
+  // Se o template foi atribuido a um e-mail não cadastrado, guardamos aqui
+  pendingEmail String?     
 
   workoutDays WorkoutDay[]
 }
