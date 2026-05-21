@@ -13,4 +13,4 @@ COPY . .
 
 EXPOSE 8081
 
-CMD sh -c "npx prisma migrate deploy && tsx src/index.ts"
+CMD sh -c "npx prisma migrate deploy && npx tsx src/index.ts"
