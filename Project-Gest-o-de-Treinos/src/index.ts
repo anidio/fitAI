@@ -36,6 +36,10 @@ await app.register(fastifySwagger, {
     },
     servers: [
       {
+        description: "Produção (Render)",
+        url: "https://fitai-backend-fdgf.onrender.com",
+      },
+      {
         description: "Localhost",
         url: "http://localhost:8081",
       },
@@ -44,9 +48,14 @@ await app.register(fastifySwagger, {
   transform: jsonSchemaTransform,
 });
 
+// Configuração corrigida do CORS para aceitar o Frontend local e de Produção
 await app.register(fastifyCors, {
-  origin: ["http://localhost:3000"],
+  origin: [
+    "http://localhost:3000",
+    "https://fit-ai-bhv2.vercel.app"
+  ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
   credentials: true,
 });
 
