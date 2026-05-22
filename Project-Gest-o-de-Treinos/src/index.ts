@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import fastifyCors from "@fastify/cors";
 import fastifySwagger from "@fastify/swagger";
-import fastifyApiReference from "@scalar/fastify-api-reference";
+import fastifySwaggerUi from "@fastify/swagger-ui";
 import Fastify from "fastify";
 import {
   jsonSchemaTransform,
@@ -48,6 +48,18 @@ await app.register(fastifySwagger, {
   transform: jsonSchemaTransform,
 });
 
+await app.register(fastifySwaggerUi, {
+  routePrefix: "/docs",
+  uiConfig: {
+    docExpansion: "list",
+  },
+  staticCSP: true,
+  transformStaticCSP: (header) => header,
+  uiHooks: {
+    onRequest: (request, reply, next) => next(),
+  },
+});
+
 // Configuração corrigida do CORS para aceitar o Frontend local e de Produção
 await app.register(fastifyCors, {
   origin: [
@@ -57,24 +69,6 @@ await app.register(fastifyCors, {
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
   credentials: true,
-});
-
-await app.register(fastifyApiReference, {
-  routePrefix: "/docs",
-  configuration: {
-    sources: [
-      {
-        title: "Bootcamp Treinos API",
-        slug: "bootcamp-treinos-api",
-        url: "/swagger.json",
-      },
-      {
-        title: "Auth API",
-        slug: "auth-api",
-        url: "/api/auth/open-api/generate-schema",
-      },
-    ],
-  },
 });
 
 // RESTful
@@ -101,18 +95,14 @@ app.withTypeProvider<ZodTypeProvider>().route({
   method: "GET",
   url: "/",
   schema: {
-    description: "Hello world",
-    tags: ["Hello World"],
+    description: "Redirect to API documentation",
+    tags: ["Documentation"],
     response: {
-      200: z.object({
-        message: z.string(),
-      }),
+      302: z.null(),
     },
   },
-  handler: () => {
-    return {
-      message: "Hello World",
-    };
+  handler: async (request, reply) => {
+    return reply.redirect(302, "/docs");
   },
 });
 
