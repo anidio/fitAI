@@ -80,7 +80,8 @@ export const aiRoutes = async (app: FastifyInstance) => {
     url: "/",
     schema: {
       tags: ["AI"],
-      summary: "Chat with AI personal trainer",
+      summary: "Chat com personal trainer AI",
+      description: "Processa conversas com a IA e expõe ferramentas de treino ao usuário autenticado.",
     },
     handler: async (request, reply) => {
       const session = await auth.api.getSession({

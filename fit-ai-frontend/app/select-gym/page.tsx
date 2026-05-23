@@ -11,6 +11,8 @@ type GymOption = {
   name: string;
 };
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
+
 export default function SelectGymPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -23,7 +25,7 @@ export default function SelectGymPage() {
 
     const fetchGyms = async () => {
       try {
-        const response = await fetch("http://localhost:8081/gyms", {
+        const response = await fetch(`${apiBaseUrl}/gyms`, {
           credentials: "include",
         });
 
@@ -63,7 +65,7 @@ export default function SelectGymPage() {
     try {
       // CORREÇÃO: Usando a função nativa 'fetch' (letras minúsculas) do navegador.
       // Sem nenhuma referência a 'customFetch'!
-      const response = await fetch("http://localhost:8081/me/gym", {
+      const response = await fetch(`${apiBaseUrl}/me/gym`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -78,7 +80,7 @@ export default function SelectGymPage() {
 
       // After linking gym, apply any pending workout plans assigned to this user's email
       try {
-        await fetch("http://localhost:8081/me/pending-assignments/apply", {
+        await fetch(`${apiBaseUrl}/me/pending-assignments/apply`, {
           method: "POST",
           credentials: "include",
         });
@@ -98,7 +100,7 @@ export default function SelectGymPage() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-black px-4">
-      <div className="w-full max-w-[400px] bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-2xl text-center">
+      <div className="w-full max-w-100 bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-2xl text-center">
         
         <div className="mb-6 flex justify-center">
           <Image

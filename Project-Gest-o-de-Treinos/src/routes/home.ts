@@ -14,7 +14,8 @@ export const homeRoutes = async (app: FastifyInstance) => {
     url: "/:date",
     schema: {
       tags: ["Home"],
-      summary: "Get home page data",
+      summary: "Dados da página inicial",
+      description: "Retorna os dados do painel inicial do aluno para a data informada.",
       params: z.object({
         date: z.iso.date(),
       }),
@@ -22,6 +23,7 @@ export const homeRoutes = async (app: FastifyInstance) => {
         200: HomeDataSchema,
         401: ErrorSchema,
         404: ErrorSchema,
+        428: ErrorSchema,
         500: ErrorSchema,
       },
     },
@@ -42,6 +44,14 @@ export const homeRoutes = async (app: FastifyInstance) => {
           userId: session.user.id,
           date: request.params.date,
         });
+
+        if ("status" in result && result.status === 428) {
+          return reply.status(428).send({
+            error: result.error,
+            code: "GYM_NOT_SELECTED",
+            message: result.message,
+          });
+        }
 
         return reply.status(200).send(result);
       } catch (error) {

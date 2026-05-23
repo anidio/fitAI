@@ -44,8 +44,14 @@ interface OutputDto {
   >;
 }
 
+interface HomeDataPreconditionError {
+  status: 428;
+  error: string;
+  message: string;
+}
+
 export class GetHomeData {
-  async execute(dto: InputDto): Promise<OutputDto> {
+  async execute(dto: InputDto): Promise<OutputDto | HomeDataPreconditionError> {
         // Checa se o usuário existe, qual a sua role e se já possui uma unidade vinculada
     const user = await prisma.user.findUnique({
       where: { id: dto.userId },
@@ -54,13 +60,11 @@ export class GetHomeData {
 
     // Se for um Aluno comum (USER) e o Dono/Personal ainda não o vinculou a uma Academia
     if (user && user.role === "USER" && !user.gymId) {
-      // Retornamos um formato de resposta controlado para o frontend saber que o bloqueio é de select-gym
       return {
-        status: 428, // Precondition Required
+        status: 428,
         error: "GYM_NOT_SELECTED",
         message: "O aluno precisa estar vinculado a uma unidade corporativa antes de acessar a Home.",
-        data: null
-      } as unknown as OutputDto;
+      };
     }
 
     const currentDate = dayjs.utc(dto.date);

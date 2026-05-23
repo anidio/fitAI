@@ -17,7 +17,8 @@ export const statsRoutes = async (app: FastifyInstance) => {
     url: "/",
     schema: {
       tags: ["Stats"],
-      summary: "Get user workout stats",
+      summary: "Buscar estatísticas de treino do usuário",
+      description: "Retorna dados de consistência, streak e tempo total de treino para o usuário autenticado.",
       querystring: StatsQuerySchema,
       response: {
         200: StatsSchema,

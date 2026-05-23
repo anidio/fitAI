@@ -5,7 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
@@ -27,22 +27,23 @@ model Gym {
   updatedAt DateTime @updatedAt @db.Timestamptz()
   
   // Relacionamentos
-  users     User[]   // Uma academia abriga múltiplos alunos, personais e gestores
+  users        User[]        // Uma academia abriga múltiplos alunos, personais e gestores
+  workoutPlans WorkoutPlan[] // Treinos vinculados ou disponibilizados como template nesta unidade
 }
 
 model User {
-  id                  String        @id
-  name                String
-  email               String
-  emailVerified       Boolean       @default(false)
-  image               String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   
   // Controle de Perfil e Vínculo Corporativo
-  role                UserRole      @default(USER)
-  gymId               String?
-  gym                 Gym?          @relation(fields: [gymId], references: [id], onDelete: SetNull)
+  role          UserRole  @default(USER)
+  gymId         String?
+  gym           Gym?      @relation(fields: [gymId], references: [id], onDelete: SetNull)
 
   // Dados Físicos (Coletados pela IA no chat e exibidos no perfil)
   weightInGrams       Int?
@@ -52,27 +53,30 @@ model User {
   injuryNotes         String?       // Adicionado para a IA saber o histórico de lesões e dores
 
   // Relacionamentos operacionais
-  workoutPlans        WorkoutPlan[] @relation("UserPlans") // Planos associados a este usuário como aluno
-  createdTemplates    WorkoutPlan[] @relation("CreatedByPersonal") // Templates que este usuário criou como Personal
+  workoutPlans     WorkoutPlan[] @relation("UserPlans") // Planos associados a este usuário como aluno
+  createdTemplates WorkoutPlan[] @relation("CreatedByPersonal") // Templates que este usuário criou como Personal
   
-  sessions            Session[]
-  accounts            Account[]
+  sessions      Session[]
+  accounts      Account[]
 
-  @@unique([email])
   @@map("user")
 }
 
 model WorkoutPlan {
-  id          String       @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   description String?
-  isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now()) @db.Timestamptz()
-  updatedAt   DateTime     @updatedAt @db.Timestamptz()
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz()
+  updatedAt   DateTime @updatedAt @db.Timestamptz()
 
   // Controle de Atribuição e Templates B2B
-  isTemplate  Boolean      @default(false) // Se 'true', indica que é um template global (ex: Força 1, Emagrecimento 2)
+  isTemplate  Boolean  @default(false) // Se 'true', indica que é um template global ou de uma academia parceira
   
+  // Vínculo do treino com a unidade física da academia
+  gymId       String?
+  gym         Gym?     @relation(fields: [gymId], references: [id], onDelete: SetNull)
+
   userId      String?      // Opcional se for apenas um template global reutilizável
   user        User?        @relation("UserPlans", fields: [userId], references: [id], onDelete: Cascade)
   
