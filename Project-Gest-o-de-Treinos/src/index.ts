@@ -126,7 +126,7 @@ app.withTypeProvider<ZodTypeProvider>().route({
     },
   },
   handler: async (request, reply) => {
-    return reply.redirect(302, "/docs");
+    return reply.redirect("/docs");
   },
 });
 
