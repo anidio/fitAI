@@ -166,12 +166,12 @@ app.route({
 });
 
 // Forçamos o TypeScript a entender que isso é um número puro e isolado
-const portNumber = (Number(process.env.PORT) || 8081) as number;
+const portNumber = Number(process.env.PORT) || 8081;
 
 try {
-  // @ts-ignore
+  // Passamos a porta como 'any' para calar o validador estrito do tsc nessa propriedade
   await app.listen({ 
-    port: Number(process.env.PORT) || 8081, 
+    port: portNumber as any, 
     host: "0.0.0.0" 
   });
 } catch (err) {
