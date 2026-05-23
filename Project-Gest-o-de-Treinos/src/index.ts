@@ -165,13 +165,13 @@ app.route({
   },
 });
 
-// Força a tipagem explícita da porta para o compilador do TypeScript não chiar
-const port: number = Number(process.env.PORT) || 8081;
+// Forçamos o TypeScript a entender que isso é um número puro e isolado
+const portNumber = (Number(process.env.PORT) || 8081) as number;
 
 try {
-  // Ajustado: host "0.0.0.0" permite que o Docker mapeie a porta para a sua máquina
+  // Passamos a propriedade port isolada de forma limpa e estrita
   await app.listen({ 
-    port: port, 
+    port: portNumber, 
     host: "0.0.0.0" 
   });
 } catch (err) {
