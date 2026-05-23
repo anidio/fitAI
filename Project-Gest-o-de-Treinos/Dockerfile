@@ -8,8 +8,8 @@ WORKDIR /app
 # Copia os arquivos de definição de dependências primeiro
 COPY package*.json ./
 
-# Força a instalação limpa resolvendo as dependências diretamente do registro do npm
-RUN npm install --no-package-lock
+# Instala dependências ignorando conflitos estritos de peer dependencies
+RUN npm install --legacy-peer-deps
 
 # Copia todo o código do projeto para dentro do container
 COPY . .
