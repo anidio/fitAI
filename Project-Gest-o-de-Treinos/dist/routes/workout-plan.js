@@ -16,7 +16,8 @@ export const workoutPlanRoutes = async (app) => {
         url: "/",
         schema: {
             tags: ["Workout Plan"],
-            summary: "List workout plans",
+            summary: "Listar planos de treino",
+            description: "Lista os planos de treino do usuário autenticado, com filtro opcional por ativos.",
             querystring: ListWorkoutPlansQuerySchema,
             response: {
                 200: ListWorkoutPlansSchema,
@@ -56,7 +57,8 @@ export const workoutPlanRoutes = async (app) => {
         url: "/",
         schema: {
             tags: ["Workout Plan"],
-            summary: "Create a workout plan",
+            summary: "Criar plano de treino",
+            description: "Cria um novo plano de treino completo para o usuário autenticado.",
             body: WorkoutPlanSchema.omit({ id: true }),
             response: {
                 201: WorkoutPlanSchema,
@@ -105,7 +107,8 @@ export const workoutPlanRoutes = async (app) => {
         url: "/:workoutPlanId",
         schema: {
             tags: ["Workout Plan"],
-            summary: "Get a workout plan",
+            summary: "Buscar plano de treino",
+            description: "Retorna os detalhes de um plano de treino específico do usuário autenticado.",
             params: z.object({
                 workoutPlanId: z.uuid(),
             }),
@@ -154,7 +157,8 @@ export const workoutPlanRoutes = async (app) => {
         url: "/:workoutPlanId/days/:workoutDayId",
         schema: {
             tags: ["Workout Plan"],
-            summary: "Get a workout day",
+            summary: "Buscar dia de treino",
+            description: "Retorna os detalhes de um dia de treino específico dentro de um plano.",
             params: z.object({
                 workoutPlanId: z.uuid(),
                 workoutDayId: z.uuid(),
@@ -205,7 +209,8 @@ export const workoutPlanRoutes = async (app) => {
         url: "/:workoutPlanId/days/:workoutDayId/sessions",
         schema: {
             tags: ["Workout Plan"],
-            summary: "Start a workout session",
+            summary: "Iniciar sessão de treino",
+            description: "Inicia uma nova sessão de treino para o dia selecionado de um plano ativo.",
             params: z.object({
                 workoutPlanId: z.uuid(),
                 workoutDayId: z.uuid(),
@@ -265,227 +270,13 @@ export const workoutPlanRoutes = async (app) => {
             }
         },
     });
-    // 1. NOVO ENDPOINT B2B: Listar todos os planos de treino marcados como template corporativo
-    app.withTypeProvider().route({
-        method: "GET",
-        url: "/templates",
-        schema: {
-            tags: ["Workout Plan B2B"],
-            summary: "Personal lista os templates de treinos disponiveis no sistema",
-            response: {
-                200: z.array(z.object({
-                    id: z.string(),
-                    name: z.string(),
-                    description: z.string().nullable(),
-                })),
-                401: ErrorSchema,
-                500: ErrorSchema,
-            },
-        },
-        handler: async (request, reply) => {
-            try {
-                const session = await auth.api.getSession({
-                    headers: fromNodeHeaders(request.headers),
-                });
-                if (!session) {
-                    return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
-                }
-                // Busca no banco todos os planos configurados como template genérico
-                const templates = await prisma.workoutPlan.findMany({
-                    where: {
-                        isTemplate: true,
-                    },
-                    select: {
-                        id: true,
-                        name: true,
-                        description: true,
-                    },
-                });
-                return reply.status(200).send(templates);
-            }
-            catch (error) {
-                app.log.error(error);
-                return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
-            }
-        },
-    });
-    // 2. NOVO ENDPOINT B2B: Personal vincula um template existente a um aluno usando o e-mail
-    app.withTypeProvider().route({
-        method: "POST",
-        url: "/assign",
-        schema: {
-            tags: ["Workout Plan B2B"],
-            summary: "Personal clona um template de treino e vincula ao e-mail de um aluno matriculado",
-            body: z.object({
-                templateId: z.string(),
-                studentEmail: z.string().email("E-mail de aluno invalido"),
-            }),
-            response: {
-                201: z.object({ success: z.boolean(), message: z.string() }),
-                401: ErrorSchema,
-                404: ErrorSchema,
-                500: ErrorSchema,
-            },
-        },
-        handler: async (request, reply) => {
-            try {
-                const session = await auth.api.getSession({
-                    headers: fromNodeHeaders(request.headers),
-                });
-                if (!session) {
-                    return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
-                }
-                const { templateId, studentEmail } = request.body;
-                // 1. Busca a estrutura completa do modelo (WorkoutPlan -> WorkoutDays -> Exercises)
-                const templatePlan = await prisma.workoutPlan.findUnique({
-                    where: { id: templateId },
-                    include: {
-                        workoutDays: {
-                            include: {
-                                exercises: true,
-                            },
-                        },
-                    },
-                });
-                if (!templatePlan) {
-                    return reply.status(404).send({ error: "Template de treino nao encontrado", code: "NOT_FOUND" });
-                }
-                // 2. Procura o Aluno pelo e-mail no sistema corporativo
-                const student = await prisma.user.findUnique({ where: { email: studentEmail } });
-                // If student not found, create a pending assignment
-                if (!student) {
-                    await prisma.workoutPlan.create({
-                        data: {
-                            name: templatePlan.name,
-                            description: templatePlan.description,
-                            isTemplate: false,
-                            pendingEmail: studentEmail,
-                            creatorId: session.user.id,
-                            workoutDays: {
-                                create: templatePlan.workoutDays.map((day) => ({
-                                    name: day.name,
-                                    weekDay: day.weekDay,
-                                    estimatedDurationInSeconds: day.estimatedDurationInSeconds,
-                                    coverImageUrl: day.coverImageUrl,
-                                    exercises: {
-                                        create: day.exercises.map((exercise) => ({
-                                            name: exercise.name,
-                                            order: exercise.order,
-                                            sets: exercise.sets,
-                                            reps: exercise.reps,
-                                            restTimeInSeconds: exercise.restTimeInSeconds,
-                                        })),
-                                    },
-                                })),
-                            },
-                        },
-                    });
-                    return reply.status(201).send({ success: true, message: `Aluno nao cadastrado. Plano pendente criado para ${studentEmail}` });
-                }
-                // 3. CLONAGEM CIRÚRGICA: Cria o plano para o Aluno desvinculando a flag 'isTemplate'
-                await prisma.workoutPlan.create({
-                    data: {
-                        name: templatePlan.name,
-                        description: templatePlan.description,
-                        isTemplate: false, // Esse agora pertence ao Aluno de forma fixa
-                        userId: student.id, // ID do Aluno matriculado
-                        creatorId: session.user.id, // ID do Personal Trainer que vinculou
-                        workoutDays: {
-                            create: templatePlan.workoutDays.map((day) => ({
-                                name: day.name,
-                                weekDay: day.weekDay,
-                                estimatedDurationInSeconds: day.estimatedDurationInSeconds,
-                                coverImageUrl: day.coverImageUrl,
-                                exercises: {
-                                    create: day.exercises.map((exercise) => ({
-                                        name: exercise.name,
-                                        order: exercise.order,
-                                        sets: exercise.sets,
-                                        reps: exercise.reps,
-                                        restTimeInSeconds: exercise.restTimeInSeconds,
-                                    })),
-                                },
-                            })),
-                        },
-                    },
-                });
-                return reply.status(201).send({
-                    success: true,
-                    message: `Plano '${templatePlan.name}' clonado e atribuido com sucesso para ${student.name || studentEmail}!`
-                });
-            }
-            catch (error) {
-                app.log.error(error);
-                return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
-            }
-        },
-    });
-    // 3. NOVO ENDPOINT: Personal lista seus alunos e os treinos atribuídos
-    app.withTypeProvider().route({
-        method: "GET",
-        url: "/my-students",
-        schema: {
-            tags: ["Workout Plan B2B"],
-            summary: "Personal lista seus alunos e treinos atribuídos",
-            response: {
-                200: z.array(z.object({
-                    id: z.string(),
-                    name: z.string(),
-                    email: z.string(),
-                    workoutPlans: z.array(z.object({
-                        id: z.string(),
-                        name: z.string(),
-                        isActive: z.boolean(),
-                    })),
-                })),
-                401: ErrorSchema,
-                500: ErrorSchema,
-            },
-        },
-        handler: async (request, reply) => {
-            try {
-                const session = await auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
-                if (!session) {
-                    return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
-                }
-                // Find all workout plans where creatorId is the current personal
-                const plans = await prisma.workoutPlan.findMany({
-                    where: { creatorId: session.user.id, isTemplate: false },
-                    include: { user: { select: { id: true, name: true, email: true } } },
-                });
-                // Group by user
-                const studentMap = new Map();
-                for (const plan of plans) {
-                    if (plan.user) {
-                        if (!studentMap.has(plan.user.id)) {
-                            studentMap.set(plan.user.id, {
-                                id: plan.user.id,
-                                name: plan.user.name,
-                                email: plan.user.email,
-                                workoutPlans: [],
-                            });
-                        }
-                        studentMap.get(plan.user.id).workoutPlans.push({
-                            id: plan.id,
-                            name: plan.name,
-                            isActive: plan.isActive,
-                        });
-                    }
-                }
-                return reply.status(200).send(Array.from(studentMap.values()));
-            }
-            catch (error) {
-                app.log.error(error);
-                return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
-            }
-        },
-    });
     app.withTypeProvider().route({
         method: "PATCH",
         url: "/:workoutPlanId/days/:workoutDayId/sessions/:sessionId",
         schema: {
             tags: ["Workout Plan"],
-            summary: "Update a workout session",
+            summary: "Atualizar sessão de treino",
+            description: "Atualiza o status de conclusão de uma sessão de treino em andamento.",
             params: z.object({
                 workoutPlanId: z.uuid(),
                 workoutDayId: z.uuid(),
@@ -532,6 +323,142 @@ export const workoutPlanRoutes = async (app) => {
                     error: "Internal server error",
                     code: "INTERNAL_SERVER_ERROR",
                 });
+            }
+        },
+    });
+    // 1. LISTAR TEMPLATES (B2B)
+    app.withTypeProvider().route({
+        method: "GET",
+        url: "/templates",
+        schema: {
+            tags: ["Workout Plan B2B"],
+            summary: "Listar templates de treino",
+            response: {
+                200: z.array(z.object({ id: z.string(), name: z.string(), description: z.string().nullable() })),
+                401: ErrorSchema,
+                500: ErrorSchema,
+            },
+        },
+        handler: async (request, reply) => {
+            try {
+                const session = await auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
+                if (!session)
+                    return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
+                const templates = await prisma.workoutPlan.findMany({
+                    where: { isTemplate: true },
+                    select: { id: true, name: true, description: true }
+                });
+                return reply.status(200).send(templates);
+            }
+            catch (error) {
+                app.log.error(error);
+                return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
+            }
+        },
+    });
+    // 2. ATRIBUIR TEMPLATE A ALUNO (B2B)
+    app.withTypeProvider().route({
+        method: "POST",
+        url: "/assign",
+        schema: {
+            tags: ["Workout Plan B2B"],
+            summary: "Atribuir template a um aluno",
+            description: "Permite que um personal atribua um template a um aluno pelo e-mail.",
+            body: z.object({ templateId: z.string().uuid(), studentEmail: z.string().email() }),
+            response: { 201: z.object({ success: z.boolean(), message: z.string() }), 401: ErrorSchema, 403: ErrorSchema, 404: ErrorSchema, 500: ErrorSchema },
+        },
+        handler: async (request, reply) => {
+            try {
+                const session = await auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
+                if (!session)
+                    return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
+                const userRole = session.user.role;
+                if (userRole !== "PERSONAL") {
+                    return reply.status(403).send({
+                        error: "Apenas personal trainers podem atribuir templates de treino.",
+                        code: "FORBIDDEN",
+                    });
+                }
+                const { templateId, studentEmail } = request.body;
+                const templatePlan = await prisma.workoutPlan.findUnique({
+                    where: { id: templateId },
+                    include: { workoutDays: { include: { exercises: true } } },
+                });
+                if (!templatePlan)
+                    return reply.status(404).send({ error: "Template não encontrado", code: "NOT_FOUND_ERROR" });
+                const student = await prisma.user.findUnique({ where: { email: studentEmail } });
+                await prisma.workoutPlan.create({
+                    data: {
+                        name: templatePlan.name,
+                        description: templatePlan.description,
+                        isTemplate: false,
+                        userId: student?.id,
+                        pendingEmail: student ? null : studentEmail,
+                        creatorId: session.user.id,
+                        workoutDays: {
+                            create: templatePlan.workoutDays.map((day) => ({
+                                name: day.name,
+                                weekDay: day.weekDay,
+                                estimatedDurationInSeconds: day.estimatedDurationInSeconds,
+                                coverImageUrl: day.coverImageUrl,
+                                exercises: {
+                                    create: day.exercises.map((ex) => ({
+                                        name: ex.name,
+                                        order: ex.order,
+                                        sets: ex.sets,
+                                        reps: ex.reps,
+                                        restTimeInSeconds: ex.restTimeInSeconds,
+                                    })),
+                                },
+                            })),
+                        },
+                    },
+                });
+                return reply.status(201).send({ success: true, message: `Plano atribuído a ${studentEmail}` });
+            }
+            catch (error) {
+                app.log.error(error);
+                return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
+            }
+        },
+    });
+    // 3. LISTAR ALUNOS DO PERSONAL (B2B)
+    app.withTypeProvider().route({
+        method: "GET",
+        url: "/my-students",
+        schema: {
+            tags: ["Workout Plan B2B"],
+            summary: "Listar alunos do personal",
+            description: "Retorna os alunos e os planos de treino atribuídos ao personal autenticado.",
+            response: {
+                200: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), workoutPlans: z.array(z.object({ id: z.string(), name: z.string(), isActive: z.boolean() })) })),
+                401: ErrorSchema,
+                500: ErrorSchema,
+            },
+        },
+        handler: async (request, reply) => {
+            try {
+                const session = await auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
+                if (!session)
+                    return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
+                const plans = await prisma.workoutPlan.findMany({
+                    where: { creatorId: session.user.id, isTemplate: false },
+                    include: { user: { select: { id: true, name: true, email: true } } },
+                });
+                const studentMap = new Map();
+                for (const plan of plans) {
+                    if (plan.user) {
+                        if (!studentMap.has(plan.user.id)) {
+                            studentMap.set(plan.user.id, { id: plan.user.id, name: plan.user.name, email: plan.user.email, workoutPlans: [] });
+                        }
+                        studentMap.get(plan.user.id).workoutPlans.push({ id: plan.id, name: plan.name, isActive: plan.isActive });
+                    }
+                }
+                return reply.status(200).send(Array.from(studentMap.values()));
+            }
+            catch (error) {
+                app.log.error(error);
+                return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
             }
         },
     });

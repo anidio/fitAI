@@ -5,7 +5,7 @@ import z from "zod";
 
 import { NotFoundError } from "../errors/index.js";
 import { auth } from "../lib/auth.js";
-import { ErrorSchema, HomeDataSchema } from "../schemas/index.js";
+import { ErrorSchema, HomeDataSchema, MessageErrorSchema } from "../schemas/index.js";
 import { GetHomeData } from "../usecases/GetHomeData.js";
 
 export const homeRoutes = async (app: FastifyInstance) => {
@@ -23,7 +23,7 @@ export const homeRoutes = async (app: FastifyInstance) => {
         200: HomeDataSchema,
         401: ErrorSchema,
         404: ErrorSchema,
-        428: ErrorSchema,
+        428: MessageErrorSchema,
         500: ErrorSchema,
       },
     },
@@ -45,7 +45,7 @@ export const homeRoutes = async (app: FastifyInstance) => {
           date: request.params.date,
         });
 
-        if ("status" in result && result.status === 428) {
+        if ("status" in result) {
           return reply.status(428).send({
             error: result.error,
             code: "GYM_NOT_SELECTED",

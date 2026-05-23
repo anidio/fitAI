@@ -4,12 +4,93 @@ import { auth } from "../lib/auth.js";
 import { prisma } from "../lib/db.js";
 import { ErrorSchema } from "../schemas/index.js";
 export const gymRoutes = async (app) => {
+    /**
+     * REQUISITO 1: Endpoint para criar um novo Dono de Academia
+     * Salva a conta do usuário diretamente com a role 'GYM_OWNER'
+     */
+    app.withTypeProvider().route({
+        method: "POST",
+        url: "/dono",
+        schema: {
+            tags: ["Academia / Gestão"],
+            summary: "Cadastra um novo Dono de Academia",
+            description: "Cria uma conta de usuário com a role fixada como 'GYM_OWNER' para gerenciar unidades e treinos.",
+            body: z.object({
+                name: z.string().min(3, "Nome muito curto"),
+                email: z.string().email("E-mail inválido"),
+                password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
+            }),
+            response: {
+                201: z.object({
+                    success: z.boolean(),
+                    user: z.object({
+                        id: z.string(),
+                        name: z.string(),
+                        email: z.string(),
+                        role: z.string(),
+                    }),
+                }),
+                400: ErrorSchema,
+                500: ErrorSchema,
+            },
+        },
+        handler: async (request, reply) => {
+            try {
+                const { name, email, password } = request.body;
+                // Verifica se o usuário já existe para evitar duplicidade
+                const existingUser = await prisma.user.findUnique({
+                    where: { email },
+                });
+                if (existingUser) {
+                    return reply.status(400).send({
+                        error: "Este e-mail já está cadastrado no sistema.",
+                        code: "BAD_REQUEST",
+                    });
+                }
+                // Criando o usuário através do ecossistema do Better-Auth para garantir consistência de hash
+                const user = await auth.api.signUpEmail({
+                    body: {
+                        name,
+                        email,
+                        password,
+                        role: "GYM_OWNER",
+                    },
+                });
+                if (!user) {
+                    return reply.status(500).send({
+                        error: "Erro ao processar o cadastro do usuário.",
+                        code: "INTERNAL_SERVER_ERROR",
+                    });
+                }
+                return reply.status(201).send({
+                    success: true,
+                    user: {
+                        id: user.user.id,
+                        name: user.user.name ?? "",
+                        email: user.user.email,
+                        role: user.user.role ?? "GYM_OWNER",
+                    },
+                });
+            }
+            catch (error) {
+                app.log.error(error);
+                return reply.status(500).send({
+                    error: "Erro interno do servidor ao criar o dono da academia.",
+                    code: "INTERNAL_SERVER_ERROR",
+                });
+            }
+        },
+    });
+    /**
+     * REQUISITO 2: Dono de academia cadastra uma nova unidade física
+     */
     app.withTypeProvider().route({
         method: "POST",
         url: "/",
         schema: {
-            tags: ["Gym B2B"],
+            tags: ["Academia / Gestão"],
             summary: "Dono de academia cadastra uma nova unidade física",
+            description: "Permite que um usuário autenticado com a role 'GYM_OWNER' registre uma nova academia no banco de dados.",
             body: z.object({
                 name: z.string().min(3, "Nome da unidade muito curto"),
                 address: z.string().optional(),
@@ -40,7 +121,7 @@ export const gymRoutes = async (app) => {
                 if (userRole !== "GYM_OWNER") {
                     return reply.status(403).send({
                         error: "Apenas donos de academia podem registrar unidades corporativas",
-                        code: "FORBIDDEN"
+                        code: "FORBIDDEN",
                     });
                 }
                 const { name } = request.body;
@@ -50,7 +131,7 @@ export const gymRoutes = async (app) => {
                         name,
                     },
                 });
-                // Opcional: Já vincula esse Dono a essa academia que ele acabou de criar
+                // Vincula esse Dono à academia que ele acabou de criar
                 await prisma.user.update({
                     where: { id: session.user.id },
                     data: { gymId: newGym.id },
@@ -63,19 +144,35 @@ export const gymRoutes = async (app) => {
             }
         },
     });
-    // GET para listar as academias reais criadas no banco
+    /**
+     * REQUISITO 3: Listar todas as academias ativas no sistema
+     */
     app.withTypeProvider().route({
         method: "GET",
         url: "/",
         schema: {
-            tags: ["Gym B2B"],
+            tags: ["Academia / Gestão"],
             summary: "Listar todas as academias ativas no sistema",
+            description: "Retorna uma lista simples contendo o ID e o nome de todas as unidades registradas, útil para a seleção de novos usuários.",
+            response: {
+                200: z.array(z.object({
+                    id: z.string(),
+                    name: z.string(),
+                })),
+                500: ErrorSchema,
+            },
         },
         handler: async (request, reply) => {
-            const gyms = await prisma.gym.findMany({
-                select: { id: true, name: true }
-            });
-            return gyms;
-        }
+            try {
+                const gyms = await prisma.gym.findMany({
+                    select: { id: true, name: true },
+                });
+                return gyms;
+            }
+            catch (error) {
+                app.log.error(error);
+                return reply.status(500).send({ error: "Erro ao buscar a lista de academias", code: "INTERNAL_SERVER_ERROR" });
+            }
+        },
     });
 };

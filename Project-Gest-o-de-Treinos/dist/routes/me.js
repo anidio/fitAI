@@ -12,7 +12,8 @@ export const meRoutes = async (app) => {
         url: "/",
         schema: {
             tags: ["Me"],
-            summary: "Get user train data",
+            summary: "Buscar dados do usuário",
+            description: "Retorna informações de treino do usuário autenticado.",
             response: {
                 200: UserTrainDataSchema.nullable(),
                 401: ErrorSchema,
@@ -51,7 +52,8 @@ export const meRoutes = async (app) => {
         url: "/",
         schema: {
             tags: ["Me"],
-            summary: "Upsert user train data",
+            summary: "Atualizar dados de treino",
+            description: "Atualiza peso, altura, idade e percentual de gordura do usuário autenticado.",
             body: UpsertUserTrainDataBodySchema,
             response: {
                 200: UpsertUserTrainDataSchema,
@@ -95,7 +97,8 @@ export const meRoutes = async (app) => {
         url: "/gym",
         schema: {
             tags: ["Me B2B"],
-            summary: "Vincular unidade de academia ao usuario logado",
+            summary: "Vincular academia ao usuário",
+            description: "Vincula a academia selecionada ao usuário autenticado para liberar o acesso ao treino.",
             body: z.object({
                 gymId: z.string(),
             }),
@@ -139,7 +142,8 @@ export const meRoutes = async (app) => {
         url: "/pending-assignments/apply",
         schema: {
             tags: ["Me B2B"],
-            summary: "Aplica planos pendentes que foram atribuídos por e-mail antes do cadastro do usuário",
+            summary: "Aplicar planos pendentes",
+            description: "Aplica ao usuário todos os planos atribuídos por e-mail antes de seu cadastro.",
             response: {
                 200: z.object({ applied: z.number() }),
                 401: ErrorSchema,

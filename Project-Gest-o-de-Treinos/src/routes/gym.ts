@@ -60,9 +60,7 @@ export const gymRoutes = async (app: FastifyInstance) => {
             name,
             email,
             password,
-            data: {
-              role: "GYM_OWNER", // Garante que a conta já nasce na tela de gestão correta
-            },
+            role: "GYM_OWNER",
           },
         });
 

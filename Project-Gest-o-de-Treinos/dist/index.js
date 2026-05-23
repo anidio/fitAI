@@ -19,8 +19,8 @@ app.setSerializerCompiler(serializerCompiler);
 await app.register(fastifySwagger, {
     openapi: {
         info: {
-            title: "Bootcamp Treinos API",
-            description: "API para o bootcamp de treinos do FSC",
+            title: "Fit.AI Backend API",
+            description: "API Fit.AI para gestão de usuários, academias e planos de treino.",
             version: "1.0.0",
         },
         servers: [

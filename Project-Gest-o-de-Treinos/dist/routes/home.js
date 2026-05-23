@@ -2,7 +2,7 @@ import { fromNodeHeaders } from "better-auth/node";
 import z from "zod";
 import { NotFoundError } from "../errors/index.js";
 import { auth } from "../lib/auth.js";
-import { ErrorSchema, HomeDataSchema } from "../schemas/index.js";
+import { ErrorSchema, HomeDataSchema, MessageErrorSchema } from "../schemas/index.js";
 import { GetHomeData } from "../usecases/GetHomeData.js";
 export const homeRoutes = async (app) => {
     app.withTypeProvider().route({
@@ -10,7 +10,8 @@ export const homeRoutes = async (app) => {
         url: "/:date",
         schema: {
             tags: ["Home"],
-            summary: "Get home page data",
+            summary: "Dados da página inicial",
+            description: "Retorna os dados do painel inicial do aluno para a data informada.",
             params: z.object({
                 date: z.iso.date(),
             }),
@@ -18,6 +19,7 @@ export const homeRoutes = async (app) => {
                 200: HomeDataSchema,
                 401: ErrorSchema,
                 404: ErrorSchema,
+                428: MessageErrorSchema,
                 500: ErrorSchema,
             },
         },
@@ -37,6 +39,13 @@ export const homeRoutes = async (app) => {
                     userId: session.user.id,
                     date: request.params.date,
                 });
+                if ("status" in result) {
+                    return reply.status(428).send({
+                        error: result.error,
+                        code: "GYM_NOT_SELECTED",
+                        message: result.message,
+                    });
+                }
                 return reply.status(200).send(result);
             }
             catch (error) {

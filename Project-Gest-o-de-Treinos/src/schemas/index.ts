@@ -7,6 +7,10 @@ export const ErrorSchema = z.object({
   code: z.string(),
 });
 
+export const MessageErrorSchema = ErrorSchema.extend({
+  message: z.string().optional(),
+});
+
 export const StartWorkoutSessionSchema = z.object({
   userWorkoutSessionId: z.uuid(),
 });

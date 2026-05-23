@@ -21,12 +21,10 @@ export class GetHomeData {
         });
         // Se for um Aluno comum (USER) e o Dono/Personal ainda não o vinculou a uma Academia
         if (user && user.role === "USER" && !user.gymId) {
-            // Retornamos um formato de resposta controlado para o frontend saber que o bloqueio é de select-gym
             return {
-                status: 428, // Precondition Required
+                status: 428,
                 error: "GYM_NOT_SELECTED",
                 message: "O aluno precisa estar vinculado a uma unidade corporativa antes de acessar a Home.",
-                data: null
             };
         }
         const currentDate = dayjs.utc(dto.date);
