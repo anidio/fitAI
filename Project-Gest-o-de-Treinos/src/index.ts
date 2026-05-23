@@ -2,7 +2,6 @@ import "dotenv/config";
 
 import fastifyCors from "@fastify/cors";
 import fastifySwagger from "@fastify/swagger";
-import fastifySwaggerUi from "@fastify/swagger-ui";
 import Fastify from "fastify";
 import {
   jsonSchemaTransform,
@@ -48,15 +47,40 @@ await app.register(fastifySwagger, {
   transform: jsonSchemaTransform,
 });
 
-await app.register(fastifySwaggerUi, {
-  routePrefix: "/docs",
-  uiConfig: {
-    docExpansion: "list",
+// Serve a lightweight Swagger UI via CDN at /docs (avoids adding @fastify/swagger-ui)
+app.withTypeProvider<ZodTypeProvider>().route({
+  method: "GET",
+  url: "/docs",
+  schema: {
+    hide: true,
   },
-  staticCSP: true,
-  transformStaticCSP: (header) => header,
-  uiHooks: {
-    onRequest: (request, reply, next) => next(),
+  handler: async (request, reply) => {
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>API Docs</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4/swagger-ui.css" />
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4/swagger-ui-bundle.js"></script>
+    <script>
+      window.onload = function() {
+        const ui = SwaggerUIBundle({
+          url: '/swagger.json',
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          presets: [SwaggerUIBundle.presets.apis],
+        });
+        window.ui = ui;
+      };
+    </script>
+  </body>
+</html>`;
+
+    reply.header('Content-Type', 'text/html; charset=utf-8').send(html);
   },
 });
 

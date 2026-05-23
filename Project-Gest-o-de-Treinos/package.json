@@ -30,17 +30,16 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.33",
     "@fastify/cors": "^11.2.0",
-    "@fastify/swagger": "^9.7.0",
-    "@fastify/swagger-ui": "^9.0.0",
+    "@fastify/swagger": "^9.4.0",
     "@prisma/adapter-pg": "^7.4.0",
     "@prisma/client": "^7.4.0",
-    "@scalar/fastify-api-reference": "^1.44.20",
+    "@scalar/fastify-api-reference": "^1.25.13",
     "ai": "^6.0.100",
     "better-auth": "^1.4.18",
     "dayjs": "^1.11.19",
     "dotenv": "^17.3.1",
-    "fastify": "^5.7.4",
-    "fastify-type-provider-zod": "^6.1.0",
+    "fastify": "^5.2.1",
+    "fastify-type-provider-zod": "^4.0.2",
     "zod": "^4.3.6"
   }
 }
