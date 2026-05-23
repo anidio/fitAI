@@ -169,9 +169,9 @@ app.route({
 const portNumber = (Number(process.env.PORT) || 8081) as number;
 
 try {
-  // Passamos a propriedade port isolada de forma limpa e estrita
+  // @ts-ignore
   await app.listen({ 
-    port: portNumber, 
+    port: Number(process.env.PORT) || 8081, 
     host: "0.0.0.0" 
   });
 } catch (err) {
