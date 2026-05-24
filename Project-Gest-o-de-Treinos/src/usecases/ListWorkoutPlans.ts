@@ -1,4 +1,4 @@
-import { WeekDay } from "../generated/prisma/enums.js";
+import { WeekDay } from "../generated/prisma/index.js";
 import { prisma } from "../lib/db.js";
 
 interface InputDto {
@@ -45,26 +45,73 @@ export class ListWorkoutPlans {
       orderBy: { createdAt: "desc" },
     });
 
-    return workoutPlans.map((plan) => ({
-      id: plan.id,
-      name: plan.name,
-      isActive: plan.isActive,
-      workoutDays: plan.workoutDays.map((day) => ({
-        id: day.id,
-        name: day.name,
-        weekDay: day.weekDay,
-        isRest: day.isRest,
-        estimatedDurationInSeconds: day.estimatedDurationInSeconds,
-        coverImageUrl: day.coverImageUrl ?? undefined,
-        exercises: day.exercises.map((exercise) => ({
-          id: exercise.id,
-          order: exercise.order,
-          name: exercise.name,
-          sets: exercise.sets,
-          reps: exercise.reps,
-          restTimeInSeconds: exercise.restTimeInSeconds,
-        })),
-      })),
+    return workoutPlans.map(
+      (plan: {
+        id: string;
+        name: string;
+        isActive: boolean;
+        workoutDays: Array<{
+          id: string;
+          name: string;
+          weekDay: WeekDay;
+          isRest: boolean;
+          estimatedDurationInSeconds: number;
+          coverImageUrl?: string | null;
+          exercises: Array<{
+            id: string;
+            order: number;
+            name: string;
+            sets: number;
+            reps: number;
+            restTimeInSeconds: number;
+          }>;
+        }>;
+      }) => ({
+        id: plan.id,
+        name: plan.name,
+        isActive: plan.isActive,
+        workoutDays: plan.workoutDays.map(
+        (day: {
+          id: string;
+          name: string;
+          weekDay: WeekDay;
+          isRest: boolean;
+          estimatedDurationInSeconds: number;
+          coverImageUrl?: string | null;
+          exercises: Array<{
+            id: string;
+            order: number;
+            name: string;
+            sets: number;
+            reps: number;
+            restTimeInSeconds: number;
+          }>;
+        }) => ({
+          id: day.id,
+          name: day.name,
+          weekDay: day.weekDay,
+          isRest: day.isRest,
+          estimatedDurationInSeconds: day.estimatedDurationInSeconds,
+          coverImageUrl: day.coverImageUrl ?? undefined,
+          exercises: day.exercises.map(
+            (exercise: {
+              id: string;
+              order: number;
+              name: string;
+              sets: number;
+              reps: number;
+              restTimeInSeconds: number;
+            }) => ({
+              id: exercise.id,
+              order: exercise.order,
+              name: exercise.name,
+              sets: exercise.sets,
+              reps: exercise.reps,
+              restTimeInSeconds: exercise.restTimeInSeconds,
+            }),
+          ),
+        }),
+      ),
     }));
   }
 }

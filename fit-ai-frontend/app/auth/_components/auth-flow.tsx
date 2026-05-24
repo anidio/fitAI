@@ -31,8 +31,7 @@ export const AuthFlow = () => {
           email,
           password,
           name,
-          // Enviamos a role nos metadados para o Better-Auth persistir no banco se configurado
-          data: { role }, 
+          role, // Agora enviado no nível correto para o Better Auth identificar
         });
 
         if (signUpError) throw new Error(signUpError.message);

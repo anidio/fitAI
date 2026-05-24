@@ -1,5 +1,5 @@
 import { NotFoundError } from "../errors/index.js";
-import { WeekDay } from "../generated/prisma/enums.js";
+import { WeekDay } from "../generated/prisma/index.js";
 import { prisma } from "../lib/db.js";
 
 interface InputDto {
@@ -43,15 +43,25 @@ export class GetWorkoutPlan {
     return {
       id: workoutPlan.id,
       name: workoutPlan.name,
-      workoutDays: workoutPlan.workoutDays.map((day) => ({
-        id: day.id,
-        weekDay: day.weekDay,
-        name: day.name,
-        isRest: day.isRest,
-        coverImageUrl: day.coverImageUrl ?? undefined,
-        estimatedDurationInSeconds: day.estimatedDurationInSeconds,
-        exercisesCount: day._count.exercises,
-      })),
+      workoutDays: workoutPlan.workoutDays.map(
+        (day: {
+          id: string;
+          weekDay: WeekDay;
+          name: string;
+          isRest: boolean;
+          coverImageUrl?: string | null;
+          estimatedDurationInSeconds: number;
+          _count: { exercises: number };
+        }) => ({
+          id: day.id,
+          weekDay: day.weekDay,
+          name: day.name,
+          isRest: day.isRest,
+          coverImageUrl: day.coverImageUrl ?? undefined,
+          estimatedDurationInSeconds: day.estimatedDurationInSeconds,
+          exercisesCount: day._count.exercises,
+        }),
+      ),
     };
   }
 }

@@ -35,6 +35,11 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NODE_OPTIONS=--max-old-space-size=2048
+    deploy:
+      resources:
+        limits:
+          memory: 4G
     volumes:
       - ./Project-Gest-o-de-Treinos:/app
       - /app/node_modules
@@ -43,7 +48,8 @@ services:
         condition: service_healthy
     stdin_open: true
     tty: true
-    command: sh -c "npx prisma generate && npx prisma db push && npm run dev"
+    command: sh -c "npx prisma generate && npx prisma db push && npx tsx src/index.ts"
+    # restart: on-failure
     networks:
       - fitai-network
 
@@ -56,21 +62,29 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8081
+      - HOST=0.0.0.0
       - INTERNAL_API_URL=http://backend:8081
       - BETTER_AUTH_URL=http://localhost:3000
       - NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
       - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - NODE_OPTIONS=--max-old-space-size=2048
+    deploy:
+      resources:
+        limits:
+          memory: 4G
     volumes:
       - ./fit-ai-frontend:/app
       - /app/node_modules
       - /app/.next
     depends_on:
       - backend
+    # restart: on-failure
     stdin_open: true
     tty: true
     networks:
       - fitai-network
+
   studio:
     build:
       context: ./Project-Gest-o-de-Treinos
@@ -80,12 +94,18 @@ services:
       - "5555:5555"
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/treinos-api?schema=public
+      - NODE_OPTIONS=--max-old-space-size=1024
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     volumes:
       - ./Project-Gest-o-de-Treinos:/app
       - /app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
+    # restart: on-failure
     command: npx prisma studio --port 5555 --browser none
     networks:
       - fitai-network

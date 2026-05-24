@@ -71,7 +71,7 @@ export class GetStats {
       { workoutDayCompleted: boolean; workoutDayStarted: boolean }
     > = {};
 
-    sessions.forEach((session) => {
+    sessions.forEach((session: { startedAt: Date | string; completedAt: Date | null }) => {
       const dateKey = dayjs.utc(session.startedAt).format("YYYY-MM-DD");
 
       if (!consistencyByDay[dateKey]) {
@@ -88,16 +88,21 @@ export class GetStats {
       }
     });
 
-    const completedSessions = sessions.filter((s) => s.completedAt !== null);
+    const completedSessions = sessions.filter(
+      (s: { completedAt: Date | null }) => s.completedAt !== null,
+    );
     const completedWorkoutsCount = completedSessions.length;
     const conclusionRate =
       sessions.length > 0 ? completedWorkoutsCount / sessions.length : 0;
 
-    const totalTimeInSeconds = completedSessions.reduce((total, session) => {
-      const start = dayjs.utc(session.startedAt);
-      const end = dayjs.utc(session.completedAt!);
-      return total + end.diff(start, "second");
-    }, 0);
+    const totalTimeInSeconds = completedSessions.reduce(
+      (total: number, session: { startedAt: Date | string; completedAt: Date | null }) => {
+        const start = dayjs.utc(session.startedAt);
+        const end = dayjs.utc(session.completedAt!);
+        return total + end.diff(start, "second");
+      },
+      0,
+    );
 
     const workoutStreak = await this.calculateStreak(
       workoutPlan.id,
@@ -136,7 +141,9 @@ export class GetStats {
     });
 
     const completedDates = new Set(
-      allSessions.map((s) => dayjs.utc(s.startedAt).format("YYYY-MM-DD")),
+      allSessions.map((s: { startedAt: Date | string }) =>
+        dayjs.utc(s.startedAt).format("YYYY-MM-DD"),
+      ),
     );
 
     let streak = 0;

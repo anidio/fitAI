@@ -2,7 +2,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 
 import { NotFoundError } from "../errors/index.js";
-import { WeekDay } from "../generated/prisma/enums.js";
+import { WeekDay } from "../generated/prisma/index.js";
 import { prisma } from "../lib/db.js";
 
 dayjs.extend(utc);
@@ -66,23 +66,40 @@ export class GetWorkoutDay {
       coverImageUrl: workoutDay.coverImageUrl ?? undefined,
       estimatedDurationInSeconds: workoutDay.estimatedDurationInSeconds,
       weekDay: workoutDay.weekDay,
-      exercises: workoutDay.exercises.map((exercise) => ({
-        id: exercise.id,
-        name: exercise.name,
-        order: exercise.order,
-        workoutDayId: exercise.workoutDayId,
-        sets: exercise.sets,
-        reps: exercise.reps,
-        restTimeInSeconds: exercise.restTimeInSeconds,
-      })),
-      sessions: workoutDay.sessions.map((session) => ({
-        id: session.id,
-        workoutDayId: session.workoutDayId,
-        startedAt: dayjs.utc(session.startedAt).format("YYYY-MM-DD"),
-        completedAt: session.completedAt
-          ? dayjs.utc(session.completedAt).format("YYYY-MM-DD")
-          : undefined,
-      })),
+      exercises: workoutDay.exercises.map(
+        (exercise: {
+          id: string;
+          name: string;
+          order: number;
+          workoutDayId: string;
+          sets: number;
+          reps: number;
+          restTimeInSeconds: number;
+        }) => ({
+          id: exercise.id,
+          name: exercise.name,
+          order: exercise.order,
+          workoutDayId: exercise.workoutDayId,
+          sets: exercise.sets,
+          reps: exercise.reps,
+          restTimeInSeconds: exercise.restTimeInSeconds,
+        }),
+      ),
+      sessions: workoutDay.sessions.map(
+        (session: {
+          id: string;
+          workoutDayId: string;
+          startedAt: Date | string;
+          completedAt: Date | null;
+        }) => ({
+          id: session.id,
+          workoutDayId: session.workoutDayId,
+          startedAt: dayjs.utc(session.startedAt).format("YYYY-MM-DD"),
+          completedAt: session.completedAt
+            ? dayjs.utc(session.completedAt).format("YYYY-MM-DD")
+            : undefined,
+        }),
+      ),
     };
   }
 }

@@ -10,6 +10,7 @@ import {
 } from "../errors/index.js";
 import { auth } from "../lib/auth.js";
 import { prisma } from "../lib/db.js";
+import { WeekDay } from "../generated/prisma/index.js";
 import {
   ErrorSchema,
   GetWorkoutDaySchema,
@@ -102,7 +103,9 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
         }
         const createWorkoutPlan = new CreateWorkoutPlan();
         const result = await createWorkoutPlan.execute({
-          userId: session.user.id,
+          userId: request.body.pendingEmail ? undefined : session.user.id,
+          pendingEmail: request.body.pendingEmail,
+          creatorId: session.user.id,
           name: request.body.name,
           workoutDays: request.body.workoutDays,
         });
@@ -429,6 +432,20 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
 
         const student = await prisma.user.findUnique({ where: { email: studentEmail } });
 
+        // Se o aluno já existe, desativamos os planos anteriores dele
+        if (student) {
+          await prisma.workoutPlan.updateMany({
+            where: { userId: student.id, isActive: true },
+            data: { isActive: false },
+          });
+        } else {
+          // Se o aluno ainda não existe, desativamos planos pendentes anteriores para esse e-mail
+          await prisma.workoutPlan.updateMany({
+            where: { pendingEmail: studentEmail, isActive: true },
+            data: { isActive: false },
+          });
+        }
+
         await prisma.workoutPlan.create({
           data: {
             name: templatePlan.name,
@@ -437,22 +454,44 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
             userId: student?.id,
             pendingEmail: student ? null : studentEmail,
             creatorId: session.user.id,
+            isActive: true, // Garante que o novo plano seja o ativo
             workoutDays: {
-              create: templatePlan.workoutDays.map((day) => ({
-                name: day.name,
-                weekDay: day.weekDay,
-                estimatedDurationInSeconds: day.estimatedDurationInSeconds,
-                coverImageUrl: day.coverImageUrl,
-                exercises: {
-                  create: day.exercises.map((ex) => ({
-                    name: ex.name,
-                    order: ex.order,
-                    sets: ex.sets,
-                    reps: ex.reps,
-                    restTimeInSeconds: ex.restTimeInSeconds,
-                  })),
-                },
-              })),
+              create: templatePlan.workoutDays.map(
+                (day: {
+                  name: string;
+                  weekDay: WeekDay;
+                  estimatedDurationInSeconds: number;
+                  coverImageUrl?: string | null;
+                  exercises: Array<{
+                    name: string;
+                    order: number;
+                    sets: number;
+                    reps: number;
+                    restTimeInSeconds: number;
+                  }>;
+                }) => ({
+                  name: day.name,
+                  weekDay: day.weekDay,
+                  estimatedDurationInSeconds: day.estimatedDurationInSeconds,
+                  coverImageUrl: day.coverImageUrl,
+                  exercises: {
+                    create: day.exercises.map(
+                      (ex: {
+                        name: string;
+                        order: number;
+                        sets: number;
+                        reps: number;
+                        restTimeInSeconds: number;
+                      }) => ({
+                        name: ex.name,
+                        order: ex.order,
+                        sets: ex.sets,
+                        reps: ex.reps,
+                        restTimeInSeconds: ex.restTimeInSeconds,
+                      }),
+                    ),
+                  },
+                })),
             },
           },
         });

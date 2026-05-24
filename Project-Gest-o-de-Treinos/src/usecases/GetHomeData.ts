@@ -2,7 +2,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 
 import { NotFoundError } from "../errors/index.js";
-import { WeekDay } from "../generated/prisma/enums.js";
+import { WeekDay } from "../generated/prisma/index.js";
 import { prisma } from "../lib/db.js";
 
 dayjs.extend(utc);
@@ -58,17 +58,7 @@ export class GetHomeData {
       select: { gymId: true, role: true }
     });
 
-    // Se for um Aluno comum (USER) e o Dono/Personal ainda não o vinculou a uma Academia
-    if (user && user.role === "USER" && !user.gymId) {
-      return {
-        status: 428,
-        error: "GYM_NOT_SELECTED",
-        message: "O aluno precisa estar vinculado a uma unidade corporativa antes de acessar a Home.",
-      };
-    }
-
-    const currentDate = dayjs.utc(dto.date);
-
+    // Buscamos o plano ativo do usuário
     const workoutPlan = await prisma.workoutPlan.findFirst({
       where: { userId: dto.userId, isActive: true },
       include: {
@@ -81,13 +71,25 @@ export class GetHomeData {
       },
     });
 
+    // Se for um Aluno comum (USER) e o Dono/Personal ainda não o vinculou a uma Academia
+    // MAS apenas se ele também não tiver um treino já atribuído (para permitir fluxo B2B direto)
+    if (user && user.role === "USER" && !user.gymId && !workoutPlan) {
+      return {
+        status: 428,
+        error: "GYM_NOT_SELECTED",
+        message: "O aluno precisa estar vinculado a uma unidade corporativa antes de acessar a Home.",
+      };
+    }
+
+    const currentDate = dayjs.utc(dto.date);
+
     if (!workoutPlan) {
       throw new NotFoundError("Active workout plan not found");
     }
 
     const todayWeekDay = WEEKDAY_MAP[currentDate.day()];
     const todayWorkoutDay = workoutPlan.workoutDays.find(
-      (day) => day.weekDay === todayWeekDay,
+      (day: { weekDay: string }) => day.weekDay === todayWeekDay,
     );
 
     if (!todayWorkoutDay) {
@@ -119,12 +121,13 @@ export class GetHomeData {
       const dateKey = day.format("YYYY-MM-DD");
 
       const daySessions = weekSessions.filter(
-        (s) => dayjs.utc(s.startedAt).format("YYYY-MM-DD") === dateKey,
+        (s: { startedAt: Date | string; completedAt: Date | null }) =>
+          dayjs.utc(s.startedAt).format("YYYY-MM-DD") === dateKey,
       );
 
       const workoutDayStarted = daySessions.length > 0;
       const workoutDayCompleted = daySessions.some(
-        (s) => s.completedAt !== null,
+        (s: { completedAt: Date | null }) => s.completedAt !== null,
       );
 
       consistencyByDay[dateKey] = { workoutDayCompleted, workoutDayStarted };
@@ -176,7 +179,9 @@ export class GetHomeData {
     });
 
     const completedDates = new Set(
-      allSessions.map((s) => dayjs.utc(s.startedAt).format("YYYY-MM-DD")),
+      allSessions.map((s: { startedAt: Date | string }) =>
+        dayjs.utc(s.startedAt).format("YYYY-MM-DD"),
+      ),
     );
 
     let streak = 0;

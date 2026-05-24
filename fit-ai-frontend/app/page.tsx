@@ -33,13 +33,13 @@ export default async function Home() {
   }
 
   // 3. FLUXO DO ALUNO (USER):
-  // Se o aluno ainda não confirmou a academia (Passo 2 do novo fluxo), redireciona para a nova tela
-  if (!userGymId) {
-    redirect("/select-gym");
-  }
-
   const today = dayjs();
   const homeData = await getHomeData(today.format("YYYY-MM-DD"));
+
+  // Se o aluno ainda não confirmou a academia E não tem um treino vinculado (Passo 2 do novo fluxo)
+  if (!userGymId && homeData.status !== 200) {
+    redirect("/select-gym");
+  }
 
   // Se o treino do aluno ainda não foi vinculado pelo personal
   if (homeData.status !== 200) {

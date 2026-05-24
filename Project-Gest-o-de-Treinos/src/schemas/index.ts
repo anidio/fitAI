@@ -1,6 +1,6 @@
 import z from "zod";
 
-import { WeekDay } from "../generated/prisma/enums.js";
+import { WeekDay } from "../generated/prisma/index.js";
 
 export const ErrorSchema = z.object({
   error: z.string(),
@@ -170,8 +170,9 @@ export const UpsertUserTrainDataSchema = z.object({
 });
 
 export const WorkoutPlanSchema = z.object({
-  id: z.uuid(),
+  id: z.uuid().optional(),
   name: z.string().trim().min(1),
+  pendingEmail: z.string().email().optional(),
   workoutDays: z.array(
     z.object({
       name: z.string().trim().min(1),

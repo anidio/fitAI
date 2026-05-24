@@ -20,6 +20,26 @@ export const auth = betterAuth({
     provider: "postgresql",
   }),
 
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          // Quando um usuário é criado, verificamos se existem planos de treino vinculados ao e-mail dele
+          await prisma.workoutPlan.updateMany({
+            where: {
+              pendingEmail: user.email,
+              userId: null,
+            },
+            data: {
+              userId: user.id,
+              pendingEmail: null,
+            },
+          });
+        },
+      },
+    },
+  },
+
   // Mapeamento completo de campos adicionais para o modelo B2B e IA no Better-Auth
   user: {
     additionalFields: {
