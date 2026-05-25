@@ -25,6 +25,7 @@ const app = Fastify({
 
 app.setValidatorCompiler(validatorCompiler);
 app.setSerializerCompiler(serializerCompiler);
+app.register(gymRoutes, { prefix: "/gym" });
 
 await app.register(fastifySwagger, {
   openapi: {

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +23,7 @@ type StudentWithPlan = {
 
 export function PersonalDashboard() {
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
-  const [studentEmail, setStudentEmail] = useState("");
+  const [selectedStudentId, setSelectedStudentId] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -34,6 +33,7 @@ export function PersonalDashboard() {
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [searchStudents, setSearchStudents] = useState("");
 
+  // 1. Carrega os templates de treinos disponíveis
   useEffect(() => {
     let mounted = true;
 
@@ -75,17 +75,18 @@ export function PersonalDashboard() {
     };
   }, []);
 
+  // 2. Carrega a lista de alunos cadastrados vinculados à mesma academia (Requisito 3)
   useEffect(() => {
     let mounted = true;
 
     const loadStudents = async () => {
       try {
-        const response = await fetch("http://localhost:8081/workout-plans/my-students", {
+        const response = await fetch("http://localhost:8081/gym/students", {
           credentials: "include",
         });
 
         if (!response.ok) {
-          throw new Error("Não foi possível carregar alunos.");
+          throw new Error("Não foi possível carregar alunos vinculados à academia.");
         }
 
         const list = await response.json();
@@ -107,13 +108,17 @@ export function PersonalDashboard() {
     };
   }, []);
 
+  // 3. Executa a ligação direta entre o aluno escolhido e o treino selecionado
   const handleAssignWorkout = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!studentEmail.trim() || !templateId) return;
+    if (!selectedStudentId || !templateId) return;
 
     setLoading(true);
     setSuccessMessage("");
     setErrorMessage("");
+
+    // Encontra os dados do aluno selecionado na lista para extrair o e-mail
+    const chosenStudent = students.find((s) => s.id === selectedStudentId);
 
     try {
       const response = await fetch("http://localhost:8081/workout-plans/assign", {
@@ -122,7 +127,11 @@ export function PersonalDashboard() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ templateId, studentEmail: studentEmail.trim() }),
+        body: JSON.stringify({ 
+          templateId, 
+          userId: selectedStudentId,
+          studentEmail: chosenStudent?.email 
+        }),
       });
 
       if (!response.ok) {
@@ -130,11 +139,11 @@ export function PersonalDashboard() {
         throw new Error(payload?.error || "Falha ao vincular treino ao aluno.");
       }
 
-      setSuccessMessage("Treino vinculado com sucesso ao aluno.");
-      setStudentEmail("");
+      setSuccessMessage(`Treino vinculado com sucesso para ${chosenStudent?.name}!`);
+      setSelectedStudentId("");
       setTemplateId("");
 
-      // Reload students after assignment
+      // Atualiza a listagem de alunos e estados na tela de forma limpa após 1.5s
       setTimeout(() => {
         globalThis.location.reload();
       }, 1500);
@@ -172,9 +181,9 @@ export function PersonalDashboard() {
               placeholder="Buscar aluno por nome ou email..."
               value={searchStudents}
               onChange={(e) => setSearchStudents(e.target.value)}
-              className="flex-1 h-12 rounded-full bg-zinc-900 px-4 text-white placeholder-zinc-500 border border-zinc-800"
+              className="flex-1 h-12 rounded-full bg-zinc-900 px-4 text-white placeholder-zinc-500 border border-zinc-800 focus:outline-none focus:border-zinc-700"
             />
-            <button className="h-12 rounded-full bg-primary px-6 text-black font-semibold">{students.length} alunos</button>
+            <button className="h-12 rounded-full bg-primary px-6 text-black font-semibold pointer-events-none">{students.length} alunos</button>
           </div>
         </div>
       </div>
@@ -187,25 +196,31 @@ export function PersonalDashboard() {
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                   <Zap className="size-5 text-cyan-400" /> Atribuir Modelo de Treino
                 </CardTitle>
-                <CardDescription>Escolha um template e vincule ao e-mail do aluno matriculado.</CardDescription>
+                <CardDescription>Selecione um aluno da lista e associe um plano de treinos.</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleAssignWorkout} className="flex flex-col gap-5">
                   <div className="grid gap-4">
+                    {/* [ATUALIZADO] Campo select dinâmico em vez de e-mail escrito à mão */}
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="student-email" className="text-xs text-zinc-300">
-                        E-mail do aluno
+                      <Label htmlFor="student-select" className="text-xs text-zinc-300">
+                        Aluno Matriculado
                       </Label>
-                      <Input
-                        id="student-email"
-                        type="email"
-                        placeholder="aluno@exemplo.com"
-                        value={studentEmail}
-                        onChange={(e) => setStudentEmail(e.target.value)}
-                        disabled={loading}
+                      <select
+                        id="student-select"
+                        value={selectedStudentId}
+                        onChange={(e) => setSelectedStudentId(e.target.value)}
+                        disabled={loading || loadingStudents}
                         required
-                        className="bg-zinc-900 border-zinc-800 text-white h-12"
-                      />
+                        className="h-12 rounded-xl border border-zinc-800 bg-zinc-900 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500 appearance-none"
+                      >
+                        <option value="">Selecione um aluno da lista...</option>
+                        {students.map((student) => (
+                          <option key={student.id} value={student.id}>
+                            {student.name} ({student.email})
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -255,7 +270,7 @@ export function PersonalDashboard() {
                     </div>
                   )}
 
-                  <Button type="submit" disabled={loading || loadingTemplates || templates.length === 0} className="h-12 rounded-full bg-primary text-black font-semibold hover:bg-primary/90">
+                  <Button type="submit" disabled={loading || loadingTemplates || students.length === 0} className="h-12 rounded-full bg-primary text-black font-semibold hover:bg-primary/90">
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Vinculando...
@@ -271,9 +286,9 @@ export function PersonalDashboard() {
             <Card className="bg-zinc-950 border-zinc-800 text-white">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                  <Users className="size-5 text-blue-400" /> Seus Alunos
+                  <Users className="size-5 text-blue-400" /> Alunos Cadastrados
                 </CardTitle>
-                <CardDescription>Alunos que você está gerenciando e seus treinos atribuídos.</CardDescription>
+                <CardDescription>Visualização de todos os alunos pertencentes à mesma unidade de academia.</CardDescription>
               </CardHeader>
               <CardContent>
                 {loadingStudents ? (
@@ -296,14 +311,14 @@ export function PersonalDashboard() {
                               </div>
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
-                              {student.workoutPlans.length > 0 ? (
+                              {student.workoutPlans && student.workoutPlans.length > 0 ? (
                                 student.workoutPlans.map((plan) => (
                                   <Badge key={plan.id} className={plan.isActive ? "bg-emerald-500 text-black" : "bg-zinc-700 text-white"}>
                                     {plan.name}
                                   </Badge>
                                 ))
                               ) : (
-                                <span className="text-xs text-zinc-500">Sem treinos atribuídos</span>
+                                <span className="text-xs text-zinc-500">Sem treinos ativos no momento</span>
                               )}
                             </div>
                           </div>
@@ -312,7 +327,7 @@ export function PersonalDashboard() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-zinc-400">Nenhum aluno encontrado. Atribua um treino para começar.</p>
+                  <p className="text-sm text-zinc-400">Nenhum aluno matriculado nesta academia.</p>
                 )}
               </CardContent>
             </Card>
@@ -349,8 +364,8 @@ export function PersonalDashboard() {
                     <User2 className="size-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold">Dica</p>
-                    <p className="text-xs text-zinc-500">Use e-mails válidos para vincular treinos a alunos novos ou existentes.</p>
+                    <p className="text-xs font-semibold">Dica B2B</p>
+                    <p className="text-xs text-zinc-500">Os alunos listados são vinculados automaticamente com base no código da academia selecionada por eles.</p>
                   </div>
                 </div>
               </CardContent>

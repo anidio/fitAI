@@ -33,22 +33,37 @@ export default async function Home() {
   }
 
   // 3. FLUXO DO ALUNO (USER):
-  const today = dayjs();
-  const homeData = await getHomeData(today.format("YYYY-MM-DD"));
-
-  // Se o aluno ainda não confirmou a academia E não tem um treino vinculado (Passo 2 do novo fluxo)
-  if (!userGymId && homeData.status !== 200) {
+  
+  // REGRA AJUSTADA (Ajuste 4 e 5): O aluno loga -> Obrigatoriamente seleciona a academia primeiro.
+  if (!userGymId) {
     redirect("/select-gym");
   }
 
-  // Se o treino do aluno ainda não foi vinculado pelo personal
+  const today = dayjs();
+  const homeData = await getHomeData(today.format("YYYY-MM-DD"));
+
+  // REGRA AJUSTADA (Ajuste 2): Se a academia foi selecionada mas o personal ainda não vinculou o treino
   if (homeData.status !== 200) {
     return (
-      <div className="flex min-h-svh flex-col items-center justify-center bg-black p-6 text-center text-white">
-        <h1 className="text-xl font-bold">Aguardando liberação de treino</h1>
-        <p className="text-sm text-zinc-400 mt-2 max-w-xs">
-          Sua conta está ativa na academia! Estamos aguardando o seu Personal Trainer vincular o seu plano de treinos.
-        </p>
+      <div className="flex min-h-svh flex-col bg-background pb-24">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <p
+            className="text-[22px] uppercase leading-[1.15] text-foreground"
+            style={{ fontFamily: "var(--font-anton)" }}
+          >
+            Fit.ai
+          </p>
+          <LogoutButton />
+        </div>
+        
+        <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+          <h1 className="text-xl font-bold text-white">Nenhum treino cadastrado</h1>
+          <p className="text-sm text-zinc-400 mt-2 max-w-xs">
+            Sua conta está vinculada à academia com sucesso! Aguarde o seu Personal Trainer cadastrar o seu plano de treinos para começar.
+          </p>
+        </div>
+
+        {/* Mantém a barra inferior acessível para navegar pelo perfil/IA mesmo sem treino */}
         <BottomNav activePage="home" />
       </div>
     );
@@ -68,6 +83,7 @@ export default async function Home() {
         </p>
         <LogoutButton />
       </div>
+      
       {/* Banner Principal */}
       <div className="relative flex h-[296px] shrink-0 flex-col items-start justify-between overflow-hidden rounded-b-[20px] px-5 pb-10 pt-5">
         <div className="absolute inset-0" aria-hidden="true">
@@ -108,7 +124,7 @@ export default async function Home() {
         </div>
       </div>
 
-      {/* Rastreamento de Frequência e Consistência */}
+      {/* Rastreamento de Frequência e Consistência (Tela de Consistência do Dia) */}
       <div className="flex flex-col gap-3 px-5 pt-5">
         <div className="flex items-center justify-between">
           <h2 className="font-heading text-lg font-semibold text-foreground">

@@ -23,9 +23,9 @@ export const meRoutes = async (app: FastifyInstance) => {
     schema: {
       tags: ["Me"],
       summary: "Buscar dados do usuário",
-      description: "Retorna informações de treino do usuário autenticado e vincula treinos pendentes automaticamente.",
+      description: "Retorna informações de treino do usuário e indica se precisa selecionar academia.",
       response: {
-        200: UserTrainDataSchema.nullable(),
+        200: z.any(), // Permite o retorno customizado com o controle de tela
         401: ErrorSchema,
         500: ErrorSchema,
       },
@@ -44,38 +44,43 @@ export const meRoutes = async (app: FastifyInstance) => {
 
         const userEmail = session.user.email;
         const userId = session.user.id;
+        const userRole = (session.user as any).role;
+        const gymId = (session.user as any).gymId;
 
-        // [CORREÇÃO] Busca treinos criados pelo Personal antes do cadastro do Aluno usando o e-mail pendente
+        // Regra: Aluno (USER) que não tem gymId precisa selecionar academia
+        const requiresGymSelection = userRole === "USER" && !gymId;
+
+        // Busca treinos pendentes criados pelo Personal antes do cadastro
         const pendingPlans = await prisma.workoutPlan.findMany({
           where: { pendingEmail: userEmail },
         });
 
         if (pendingPlans.length > 0) {
-          // Desativa qualquer plano ativo que o usuário já possa ter por ventura no banco
           await prisma.workoutPlan.updateMany({
             where: { userId: userId, isActive: true },
             data: { isActive: false },
           });
 
-          // Vincula todos os planos pendentes ao ID do novo usuário e limpa o e-mail pendente
-          for (const plan of pendingPlans) {
+          for (const plan of pendingPlans) { 
             await prisma.workoutPlan.update({
               where: { id: plan.id },
-              data: { 
-                userId: userId, 
-                pendingEmail: null,
-                isActive: plan.isActive // mantém o estado ativo definido pelo personal
-              },
+              data: { userId: userId, pendingEmail: null },
             });
           }
         }
 
         const getUserTrainData = new GetUserTrainData();
-        const result = await getUserTrainData.execute({
+        const trainData = await getUserTrainData.execute({
           userId: userId,
         });
 
-        return reply.status(200).send(result);
+        // Retorna os dados agregados incluindo o controle de fluxo de telas
+        return reply.status(200).send({
+          ...trainData,
+          role: userRole,
+          gymId: gymId,
+          requiresGymSelection,
+        });
       } catch (error) {
         app.log.error(error);
         return reply.status(500).send({

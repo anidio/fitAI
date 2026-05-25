@@ -8,6 +8,85 @@ import { prisma } from "../lib/db.js";
 import { ErrorSchema } from "../schemas/index.js";
 
 export const gymRoutes = async (app: FastifyInstance) => {
+
+  // 1. ENDPOINT: Listar todos os alunos vinculados à mesma academia do Personal/Dono
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "GET",
+    url: "/students",
+    schema: {
+      tags: ["Gym B2B"],
+      summary: "Listar alunos da academia",
+      description: "Retorna a lista de alunos vinculados à mesma academia do usuário autenticado.",
+      response: {
+        200: z.array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            email: z.string(),
+            image: z.string().nullable().optional(),
+          })
+        ),
+        401: ErrorSchema,
+        403: ErrorSchema,
+        500: ErrorSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        const session = await auth.api.getSession({
+          headers: fromNodeHeaders(request.headers),
+        });
+
+        if (!session) {
+          return reply.status(401).send({
+            error: "Unauthorized",
+            code: "UNAUTHORIZED",
+          });
+        }
+
+        const userGymId = (session.user as any).gymId;
+        const userRole = (session.user as any).role;
+
+        // Validação de segurança: Apenas Personais ou Donos podem listar alunos
+        if (userRole !== "PERSONAL" && userRole !== "GYM_OWNER") {
+          return reply.status(403).send({
+            error: "Forbidden",
+            code: "FORBIDDEN",
+          });
+        }
+
+        if (!userGymId) {
+          return reply.status(200).send([]); // Se o personal não tiver academia vinculada, retorna vazio
+        }
+
+        // Busca apenas usuários cuja role seja 'USER' (Alunos) na mesma academia
+        const students = await prisma.user.findMany({
+          where: {
+            gymId: userGymId,
+            role: "USER",
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+          orderBy: {
+            name: "asc",
+          },
+        });
+
+        return reply.status(200).send(students);
+      } catch (error) {
+        app.log.error(error);
+        return reply.status(500).send({
+          error: "Internal server error",
+          code: "INTERNAL_SERVER_ERROR",
+        });
+      }
+    },
+  });
+
   /**
    * REQUISITO 1: Endpoint para criar um novo Dono de Academia
    * Salva a conta do usuário diretamente com a role 'GYM_OWNER'
