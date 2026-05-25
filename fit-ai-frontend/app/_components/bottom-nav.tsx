@@ -19,5 +19,7 @@ export async function BottomNav({ activePage = "home" }: BottomNavProps) {
     }
   }
 
-  return <BottomNavClient activePage={activePage} calendarHref={calendarHref} />;
+  return (
+    <BottomNavClient activePage={activePage} calendarHref={calendarHref} />
+  );
 }

@@ -25,7 +25,7 @@ export function WorkoutDayCard({
   weekDay,
   estimatedDurationInSeconds,
   exercisesCount,
-  coverImageUrl,
+  coverImageUrl = "/workout-plan-banner.png",
 }: WorkoutDayCardProps) {
   const durationInMinutes = Math.round(estimatedDurationInSeconds / 60);
 
@@ -36,10 +36,10 @@ export function WorkoutDayCard({
           src={coverImageUrl}
           alt={name}
           fill
-          className="pointer-events-none object-cover"
+          className="pointer-events-none object-cover transition-transform duration-500 group-hover:scale-105"
         />
       )}
-      <div className="absolute inset-0 bg-foreground/40" />
+      <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/20 to-transparent" />
       <div className="relative">
         <div className="flex items-center gap-1 rounded-full bg-background/16 px-2.5 py-1.5 backdrop-blur-sm">
           <Calendar className="size-3.5 text-background" />

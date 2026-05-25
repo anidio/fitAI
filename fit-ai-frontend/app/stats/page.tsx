@@ -4,7 +4,6 @@ import { headers } from "next/headers";
 import {
   getStats,
   getHomeData,
-  getUserTrainData,
 } from "@/app/_lib/api/fetch-generated";
 import dayjs from "dayjs";
 import { CircleCheck, CirclePercent, Hourglass } from "lucide-react";
@@ -22,42 +21,32 @@ function formatTotalTime(totalSeconds: number): string {
 
 export default async function StatsPage() {
   const session = await authClient.getSession({
-    fetchOptions: {
-      headers: await headers(),
-    },
+    fetchOptions: { headers: await headers() },
   });
 
   if (!session.data?.user) redirect("/auth");
+
+  // Trava de segurança mandatória (Regra 5): Se o aluno não confirmou a academia, manda pra seleção sempre
+  const userGymId = (session.data.user as any).gymId;
+  if (!userGymId) redirect("/select-gym");
 
   const today = dayjs();
   const from = today.subtract(2, "month").startOf("month").format("YYYY-MM-DD");
   const to = today.endOf("month").format("YYYY-MM-DD");
 
-  const [statsResponse, homeData, trainData] = await Promise.all([
+  const [statsResponse, homeData] = await Promise.all([
     getStats({ from, to }),
     getHomeData(today.format("YYYY-MM-DD")),
-    getUserTrainData(),
   ]);
 
-  const needsOnboarding =
-    (homeData.status === 200 && !homeData.data.activeWorkoutPlanId) ||
-    (trainData.status === 200 && !trainData.data);
-  if (needsOnboarding) redirect("/onboarding");
+  // Se o personal ainda não atribuiu treino, renderizamos a tela com dados zerados de forma amigável
+  const hasNoStats = statsResponse.status !== 200;
 
-  if (statsResponse.status !== 200) {
-    throw new Error("Failed to fetch stats");
-  }
-
-  const {
-    workoutStreak,
-    consistencyByDay,
-    completedWorkoutsCount,
-    conclusionRate,
-    totalTimeInSeconds,
-  } = statsResponse.data;
-
-  console.log("STREAK:", workoutStreak);
-  console.log("STATS:", statsResponse.data);
+  const workoutStreak = hasNoStats ? 0 : statsResponse.data.workoutStreak;
+  const consistencyByDay = hasNoStats ? {} : statsResponse.data.consistencyByDay;
+  const completedWorkoutsCount = hasNoStats ? 0 : statsResponse.data.completedWorkoutsCount;
+  const conclusionRate = hasNoStats ? 0 : statsResponse.data.conclusionRate;
+  const totalTimeInSeconds = hasNoStats ? 0 : statsResponse.data.totalTimeInSeconds;
 
   return (
     <div className="flex min-h-svh flex-col bg-background pb-24">
@@ -79,7 +68,7 @@ export default async function StatsPage() {
 
       <div className="flex flex-col gap-3 p-5">
         <h2 className="font-heading text-lg font-semibold text-foreground">
-          Consistência
+          Consistência Geral
         </h2>
 
         <StatsHeatmap consistencyByDay={consistencyByDay} today={today} />

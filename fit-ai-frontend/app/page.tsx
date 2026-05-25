@@ -167,6 +167,7 @@ export default async function Home() {
 
           <Link
             href={`/workout-plans/${todayWorkoutDay.workoutPlanId}/days/${todayWorkoutDay.id}`}
+            className="group"
           >
             <WorkoutDayCard
               name={todayWorkoutDay.name}
