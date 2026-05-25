@@ -1,27 +1,24 @@
-FROM node:24-slim
-
-# Instala openssl para o Prisma funcionar perfeitamente no ambiente Linux Slim
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copia os arquivos de definição de dependências primeiro
+# Copia os arquivos de dependências
 COPY package*.json ./
 
-# Instala dependências ignorando conflitos estritos de peer dependencies
+# Instala as dependências do projeto
 RUN npm install --legacy-peer-deps
 
-# Copia todo o código do projeto para dentro do container
+# Copia todo o restante dos arquivos do projeto (incluindo a pasta prisma/)
 COPY . .
 
-# Gera os artefatos do Prisma Client no caminho customizado antes de compilar o código
+# [ADICIONADO E CORRIGIDO AQUI] Gera o cliente do Prisma dentro da estrutura do Docker
 RUN npx prisma generate
 
-# Compila os arquivos TypeScript da pasta src/ para JavaScript nativo dentro da pasta dist/
+# Agora sim, compila os arquivos TypeScript sem erros de tipos ausentes
 RUN npm run build
 
 # Expõe a porta que a sua API Fastify escuta
 EXPOSE 8081
 
-# Executa as migrações oficiais de produção no banco do Render e inicia o servidor JavaScript puro
-CMD sh -c "npx prisma migrate deploy && node dist/index.js"
+# Comando para rodar a aplicação em produção
+CMD ["npm", "start"]
