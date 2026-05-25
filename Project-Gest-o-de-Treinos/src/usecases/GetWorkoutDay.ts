@@ -2,7 +2,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 
 import { NotFoundError } from "../errors/index.js";
-import { WeekDay } from "../generated/prisma/index.js";
+import { WeekDay } from "@prisma/client";
 import { prisma } from "../lib/db.js";
 
 dayjs.extend(utc);

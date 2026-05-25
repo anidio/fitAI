@@ -10,7 +10,7 @@ import {
 } from "../errors/index.js";
 import { auth } from "../lib/auth.js";
 import { prisma } from "../lib/db.js";
-import { WeekDay } from "../generated/prisma/index.js";
+import { WeekDay } from "@prisma/client";
 import {
   ErrorSchema,
   GetWorkoutDaySchema,

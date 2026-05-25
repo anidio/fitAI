@@ -1,4 +1,4 @@
-import { WeekDay } from "../generated/prisma/index.js";
+import { WeekDay } from "@prisma/client";
 import { prisma } from "../lib/db.js";
 
 interface InputDto {
