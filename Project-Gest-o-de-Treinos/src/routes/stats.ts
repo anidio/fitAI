@@ -9,7 +9,7 @@ import {
   StatsQuerySchema,
   StatsSchema,
 } from "../schemas/index.js";
-import { GetStats } from "../usecases/GetStats.js";
+import { GetStats } from "../usecases/get-stats.js";
 
 export const statsRoutes = async (app: FastifyInstance) => {
   app.withTypeProvider<ZodTypeProvider>().route({

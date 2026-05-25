@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instala as dependências do projeto
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --ignore-engines
 
 # Copia todo o restante dos arquivos do projeto (incluindo a pasta prisma/)
 COPY . .

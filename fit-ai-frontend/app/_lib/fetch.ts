@@ -1,5 +1,3 @@
-import { cookies } from "next/headers";
-
 const getBody = <T>(c: Response | Request): Promise<T> => {
   return c.json() as Promise<T>;
 };
@@ -18,11 +16,24 @@ const getUrl = (contextUrl: string): string => {
 };
 
 const getHeaders = async (headers?: HeadersInit): Promise<HeadersInit> => {
-  const _cookies = await cookies();
-  return {
-    ...headers,
-    cookie: _cookies.toString(),
-  };
+  // Se estiver no navegador, não precisamos manipular cookies manualmente, 
+  // o browser já envia automaticamente com credentials: "include"
+  if (typeof window !== "undefined") {
+    return headers || {};
+  }
+
+  // Se estiver no servidor, precisamos repassar os cookies da requisição original para o backend
+  try {
+    const { cookies } = await import("next/headers");
+    const _cookies = await cookies();
+    return {
+      ...headers,
+      cookie: _cookies.toString(),
+    };
+  } catch (e) {
+    // Caso ocorra erro ao importar next/headers em contexto não esperado
+    return headers || {};
+  }
 };
 
 export const customFetch = async <T>(

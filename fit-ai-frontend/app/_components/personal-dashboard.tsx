@@ -161,7 +161,7 @@ export function PersonalDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-black pb-20 text-white">
       <div className="relative overflow-hidden bg-black pb-16">
         <div className="absolute inset-0 opacity-60 bg-linear-to-b from-black via-zinc-900 to-transparent" />
         <div className="relative px-5 py-8 max-w-6xl mx-auto w-full">

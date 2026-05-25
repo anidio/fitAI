@@ -22,12 +22,12 @@ import {
   UpdateWorkoutSessionSchema,
   WorkoutPlanSchema,
 } from "../schemas/index.js";
-import { CreateWorkoutPlan } from "../usecases/CreateWorkoutPlan.js";
-import { GetWorkoutDay } from "../usecases/GetWorkoutDay.js";
-import { GetWorkoutPlan } from "../usecases/GetWorkoutPlan.js";
-import { ListWorkoutPlans } from "../usecases/ListWorkoutPlans.js";
-import { StartWorkoutSession } from "../usecases/StartWorkoutSession.js";
-import { UpdateWorkoutSession } from "../usecases/UpdateWorkoutSession.js";
+import { CreateWorkoutPlan } from "../usecases/create-workout-plan.js";
+import { GetWorkoutDay } from "../usecases/get-workout-day.js";
+import { GetWorkoutPlan } from "../usecases/get-workout-plan.js";
+import { ListWorkoutPlans } from "../usecases/list-workout-plans.js";
+import { StartWorkoutSession } from "../usecases/start-workout-session.js";
+import { UpdateWorkoutSession } from "../usecases/update-workout-session.js";
 
 export const workoutPlanRoutes = async (app: FastifyInstance) => {
   app.withTypeProvider<ZodTypeProvider>().route({

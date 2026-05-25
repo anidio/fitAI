@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Weight, Ruler, BicepsFlexed, User, Pencil } from "lucide-react";
 import { LogoutButton } from "./_components/logout-button";
 import { Button } from "@/components/ui/button";
+import { ProfileForm } from "./_components/profile-form";
 
 export default async function ProfilePage() {
   const session = await authClient.getSession({
@@ -24,10 +25,10 @@ export default async function ProfilePage() {
   const user = session.data.user;
   const data = trainData.status === 200 ? trainData.data : null;
 
-  const weightInKg = data ? data.weightInGrams / 1000 : null;
-  const heightInCm = data?.heightInCentimeters ?? null;
-  const bodyFatPercentage = data?.bodyFatPercentage ?? null;
-  const age = data?.age ?? null;
+  const weightInKg = data?.weightInGrams != null ? (data.weightInGrams / 1000).toFixed(1) : "-";
+  const heightInCm = data?.heightInCentimeters ?? "-";
+  const bodyFatPercentage = data?.bodyFatPercentage != null ? `${data.bodyFatPercentage}%` : "-";
+  const age = data?.age ?? "-";
 
   return (
     <div className="flex min-h-svh flex-col bg-background pb-24">
@@ -63,9 +64,15 @@ export default async function ProfilePage() {
               </div>
             </div>
           </div>
-          <Button variant="outline" size="icon" className="size-10 rounded-full">
-            <Pencil className="size-4 text-muted-foreground" />
-          </Button>
+          
+          <ProfileForm 
+            initialData={{
+              weightInGrams: data?.weightInGrams ?? 0,
+              heightInCentimeters: data?.heightInCentimeters ?? 0,
+              age: data?.age ?? 0,
+              bodyFatPercentage: data?.bodyFatPercentage ?? 0,
+            }}
+          />
         </div>
 
         <div className="grid w-full grid-cols-2 gap-3">
@@ -75,7 +82,7 @@ export default async function ProfilePage() {
             </div>
             <div className="flex flex-col items-center gap-1.5">
               <span className="font-heading text-2xl font-semibold leading-[1.15] text-foreground">
-                {weightInKg ?? "-"}
+                {weightInKg}
               </span>
               <span className="font-heading text-xs uppercase leading-[1.4] text-muted-foreground">
                 Kg
@@ -89,7 +96,7 @@ export default async function ProfilePage() {
             </div>
             <div className="flex flex-col items-center gap-1.5">
               <span className="font-heading text-2xl font-semibold leading-[1.15] text-foreground">
-                {heightInCm ?? "-"}
+                {heightInCm}
               </span>
               <span className="font-heading text-xs uppercase leading-[1.4] text-muted-foreground">
                 Cm
@@ -103,7 +110,7 @@ export default async function ProfilePage() {
             </div>
             <div className="flex flex-col items-center gap-1.5">
               <span className="font-heading text-2xl font-semibold leading-[1.15] text-foreground">
-                {bodyFatPercentage != null ? `${bodyFatPercentage}%` : "-"}
+                {bodyFatPercentage}
               </span>
               <span className="font-heading text-xs uppercase leading-[1.4] text-muted-foreground">
                 Gc
@@ -117,7 +124,7 @@ export default async function ProfilePage() {
             </div>
             <div className="flex flex-col items-center gap-1.5">
               <span className="font-heading text-2xl font-semibold leading-[1.15] text-foreground">
-                {age ?? "-"}
+                {age}
               </span>
               <span className="font-heading text-xs uppercase leading-[1.4] text-muted-foreground">
                 Anos

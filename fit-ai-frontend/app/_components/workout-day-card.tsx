@@ -27,10 +27,10 @@ export function WorkoutDayCard({
   exercisesCount,
   coverImageUrl = "/workout-plan-banner.png",
 }: WorkoutDayCardProps) {
-  const durationInMinutes = Math.round(estimatedDurationInSeconds / 60);
+  const durationInMinutes = Math.round((estimatedDurationInSeconds || 0) / 60);
 
   return (
-    <div className="relative flex h-[200px] w-full flex-col items-start justify-between overflow-hidden rounded-xl p-5">
+    <div className="group relative flex h-[200px] w-full flex-col items-start justify-between overflow-hidden rounded-xl p-5 transition-all active:scale-[0.98]">
       {coverImageUrl && (
         <Image
           src={coverImageUrl}

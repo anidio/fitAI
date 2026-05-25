@@ -14,8 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { BrainCircuit } from "lucide-react";
 
-const SUGGESTED_MESSAGES = ["Monte meu plano de treino"];
+const SUGGESTED_MESSAGES = [
+  "Monte meu plano de treino",
+  "Estou com dor hoje, pode ajustar meu treino?",
+];
 
 const chatFormSchema = z.object({
   message: z.string().min(1),
@@ -32,14 +37,30 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
   const [chatParams, setChatParams] = useQueryStates({
     chat_open: parseAsBoolean.withDefault(false),
     chat_initial_message: parseAsString,
+    ai_provider: parseAsString.withDefault("google"),
   });
 
-  const { messages, sendMessage, status } = useChat({
+  const baseUrl = typeof window !== "undefined" 
+    ? (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081")
+    : (process.env.INTERNAL_API_URL || "http://backend:8081");
+
+  // Log para debug no navegador
+  console.log("Provedor atual no componente:", chatParams.ai_provider);
+
+  const { messages, sendMessage, status, error } = useChat({
+    // A chave força o React a destruir e recriar o chat ao trocar de IA
+    key: `ai-${chatParams.ai_provider}`, 
     transport: new DefaultChatTransport({
-      api: `${process.env.NEXT_PUBLIC_API_URL}/ai`,
+      // Passamos o provedor na URL para não ter erro
+      api: `${baseUrl}/ai?provider=${chatParams.ai_provider}`,
       credentials: "include",
     }),
   });
+
+  useEffect(() => {
+    console.log("Chat Status:", status);
+    if (error) console.error("Chat Error:", error);
+  }, [status, error]);
 
   const form = useForm<ChatFormValues>({
     resolver: zodResolver(chatFormSchema),
@@ -85,10 +106,13 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const router = useRouter();
+
   if (!embedded && !chatParams.chat_open) return null;
 
   const handleClose = () => {
     setChatParams({ chat_open: false, chat_initial_message: null });
+    router.refresh();
   };
 
   const onSubmit = (values: ChatFormValues) => {
@@ -112,17 +136,34 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
       }
     >
       <div className="flex shrink-0 items-center justify-between border-b border-border p-5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="flex items-center justify-center rounded-full bg-primary/8 border border-primary/8 p-3">
             <Sparkles className="size-[18px] text-primary" />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <span className="font-heading text-base font-semibold text-foreground">
               Coach AI
             </span>
-            <div className="flex items-center gap-1">
-              <div className="size-2 rounded-full bg-online" />
-              <span className="font-heading text-xs text-primary">Online</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <div className="size-2 rounded-full bg-online" />
+                <span className="font-heading text-[10px] text-primary">Online</span>
+              </div>
+              
+              {/* Seletor de Modelo */}
+              <div className="flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5">
+                <BrainCircuit className="size-3 text-muted-foreground" />
+                <select 
+                  value={chatParams.ai_provider}
+                  onChange={(e) => setChatParams({ ai_provider: e.target.value })}
+                  className="bg-transparent font-heading text-[10px] text-muted-foreground focus:outline-none"
+                >
+                  <option value="groq">Llama (Groq)</option>
+                  <option value="google">Gemini</option>
+                  <option value="openai">GPT-4o</option>
+                  <option value="xai">Grok</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

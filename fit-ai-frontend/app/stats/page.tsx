@@ -12,6 +12,7 @@ import { LogoutButton } from "@/app/profile/_components/logout-button";
 import { StreakBanner } from "./_components/streak-banner";
 import { StatsHeatmap } from "./_components/stats-heatmap";
 import { StatCard } from "./_components/stat-card";
+import Image from "next/image";
 
 function formatTotalTime(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
@@ -73,6 +74,20 @@ export default async function StatsPage() {
 
         <StatsHeatmap consistencyByDay={consistencyByDay} today={today} />
 
+        <div className="relative mt-2 h-[120px] w-full overflow-hidden rounded-xl border border-border p-5">
+          <Image
+            src="/stats-banner.png"
+            alt=""
+            fill
+            className="pointer-events-none object-cover opacity-50"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
+          <div className="relative flex h-full flex-col justify-center">
+            <p className="font-heading text-xs font-semibold uppercase text-primary">Tempo Total</p>
+            <p className="font-heading text-3xl font-bold text-foreground">{formatTotalTime(totalTimeInSeconds)}</p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <StatCard
             icon={CircleCheck}
@@ -85,12 +100,6 @@ export default async function StatsPage() {
             label="Taxa de conclusão"
           />
         </div>
-
-        <StatCard
-          icon={Hourglass}
-          value={formatTotalTime(totalTimeInSeconds)}
-          label="Tempo Total"
-        />
       </div>
 
       <BottomNav activePage="stats" />

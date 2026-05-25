@@ -11,8 +11,8 @@ import {
   UpsertUserTrainDataSchema,
   UserTrainDataSchema,
 } from "../schemas/index.js";
-import { GetUserTrainData } from "../usecases/GetUserTrainData.js";
-import { UpsertUserTrainData } from "../usecases/UpsertUserTrainData.js";
+import { GetUserTrainData } from "../usecases/get-user-train-data.js";
+import { UpsertUserTrainData } from "../usecases/upsert-user-train-data.js";
 
 export const meRoutes = async (app: FastifyInstance) => {
   

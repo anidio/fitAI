@@ -35,6 +35,9 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - NODE_OPTIONS=--max-old-space-size=2048
     deploy:
       resources:
@@ -48,7 +51,7 @@ services:
         condition: service_healthy
     stdin_open: true
     tty: true
-    command: sh -c "npx prisma generate && npx prisma db push && npx tsx src/index.ts"
+    command: sh -c "npm install --legacy-peer-deps --ignore-engines && npx prisma generate && npx prisma db push && npx tsx src/index.ts"
     # restart: on-failure
     networks:
       - fitai-network

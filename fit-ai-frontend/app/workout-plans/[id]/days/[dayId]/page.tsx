@@ -73,7 +73,7 @@ export default async function WorkoutDayPage({
     coverImageUrl,
   } = workoutDayData.data;
 
-  const durationInMinutes = Math.round(estimatedDurationInSeconds / 60);
+  const durationInMinutes = Math.round((estimatedDurationInSeconds || 0) / 60);
 
   const inProgressSession = sessions.find((s) => s.startedAt && !s.completedAt);
   const completedSession = sessions.find((s) => s.completedAt);
@@ -87,28 +87,26 @@ export default async function WorkoutDayPage({
         <h1 className="font-heading text-lg font-semibold text-foreground">
           {hasInProgressSession || hasCompletedSession
             ? "Treino de Hoje"
-            : WEEKDAY_TITLE_LABELS[weekDay]}
+            : WEEKDAY_TITLE_LABELS[weekDay] || "Treino"}
         </h1>
         <LogoutButton />
       </div>
 
       <div className="px-5">
         <div className="relative flex h-[200px] w-full flex-col items-start justify-between overflow-hidden rounded-xl p-5">
-          {coverImageUrl && (
-            <Image
-              src={coverImageUrl}
-              alt={name}
-              fill
-              className="pointer-events-none object-cover"
-            />
-          )}
+          <Image
+            src={coverImageUrl || "/workout-plan-banner.png"}
+            alt={name}
+            fill
+            className="pointer-events-none object-cover"
+          />
           <div className="absolute inset-0 bg-foreground/40" />
 
           <div className="relative">
             <div className="flex items-center gap-1 rounded-full bg-background/16 px-2.5 py-1.5 backdrop-blur-sm">
               <Calendar className="size-3.5 text-background" />
               <span className="font-heading text-xs font-semibold uppercase text-background">
-                {WEEKDAY_LABELS[weekDay]}
+                {WEEKDAY_LABELS[weekDay] || "HOJE"}
               </span>
             </div>
           </div>
@@ -134,7 +132,7 @@ export default async function WorkoutDayPage({
               </div>
             </div>
 
-            {!hasInProgressSession && !hasCompletedSession && (
+            {!hasInProgressSession && !hasCompletedSession && exercises.length > 0 && (
               <StartWorkoutButton
                 workoutPlanId={workoutPlanId}
                 workoutDayId={dayId}
@@ -154,11 +152,18 @@ export default async function WorkoutDayPage({
       </div>
 
       <div className="flex flex-col gap-3 px-5 pt-5">
-        {exercises
-          .sort((a, b) => a.order - b.order)
-          .map((exercise) => (
-            <ExerciseCard key={exercise.id} exercise={exercise} />
-          ))}
+        {exercises.length > 0 ? (
+          exercises
+            .sort((a, b) => a.order - b.order)
+            .map((exercise) => (
+              <ExerciseCard key={exercise.id} exercise={exercise} />
+            ))
+        ) : (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Dumbbell className="size-12 text-muted-foreground mb-3 opacity-20" />
+            <p className="text-muted-foreground">Nenhum exercício cadastrado para este dia.</p>
+          </div>
+        )}
       </div>
 
       {hasInProgressSession && inProgressSession && (

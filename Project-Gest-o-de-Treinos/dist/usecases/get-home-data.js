@@ -1,0 +1,125 @@
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import { NotFoundError } from "../errors/index.js";
+import { prisma } from "../lib/db.js";
+dayjs.extend(utc);
+const WEEKDAY_MAP = {
+    0: "SUNDAY",
+    1: "MONDAY",
+    2: "TUESDAY",
+    3: "WEDNESDAY",
+    4: "THURSDAY",
+    5: "FRIDAY",
+    6: "SATURDAY",
+};
+export class GetHomeData {
+    async execute(dto) {
+        // Checa se o usuário existe, qual a sua role e se já possui uma unidade vinculada
+        const user = await prisma.user.findUnique({
+            where: { id: dto.userId },
+            select: { gymId: true, role: true }
+        });
+        // Buscamos o plano ativo do usuário
+        const workoutPlan = await prisma.workoutPlan.findFirst({
+            where: { userId: dto.userId, isActive: true },
+            include: {
+                workoutDays: {
+                    include: {
+                        exercises: true,
+                        sessions: true,
+                    },
+                },
+            },
+        });
+        // Se for um Aluno comum (USER) e o Dono/Personal ainda não o vinculou a uma Academia
+        // MAS apenas se ele também não tiver um treino já atribuído (para permitir fluxo B2B direto)
+        if (user && user.role === "USER" && !user.gymId && !workoutPlan) {
+            return {
+                status: 428,
+                error: "GYM_NOT_SELECTED",
+                message: "O aluno precisa estar vinculado a uma unidade corporativa antes de acessar a Home.",
+            };
+        }
+        const currentDate = dayjs.utc(dto.date);
+        if (!workoutPlan) {
+            throw new NotFoundError("Active workout plan not found");
+        }
+        const todayWeekDay = WEEKDAY_MAP[currentDate.day()];
+        const todayWorkoutDay = workoutPlan.workoutDays.find((day) => day.weekDay === todayWeekDay);
+        if (!todayWorkoutDay) {
+            throw new NotFoundError("No workout day found for today");
+        }
+        const weekStart = currentDate.day(0).startOf("day");
+        const weekEnd = currentDate.day(6).endOf("day");
+        const weekSessions = await prisma.workoutSession.findMany({
+            where: {
+                workoutDay: {
+                    workoutPlanId: workoutPlan.id,
+                },
+                startedAt: {
+                    gte: weekStart.toDate(),
+                    lte: weekEnd.toDate(),
+                },
+            },
+        });
+        const consistencyByDay = {};
+        for (let i = 0; i < 7; i++) {
+            const day = weekStart.add(i, "day");
+            const dateKey = day.format("YYYY-MM-DD");
+            const daySessions = weekSessions.filter((s) => dayjs.utc(s.startedAt).format("YYYY-MM-DD") === dateKey);
+            const workoutDayStarted = daySessions.length > 0;
+            const workoutDayCompleted = daySessions.some((s) => s.completedAt !== null);
+            consistencyByDay[dateKey] = { workoutDayCompleted, workoutDayStarted };
+        }
+        const workoutStreak = await this.calculateStreak(workoutPlan.id, workoutPlan.workoutDays, currentDate);
+        return {
+            activeWorkoutPlanId: workoutPlan.id,
+            todayWorkoutDay: {
+                workoutPlanId: workoutPlan.id,
+                id: todayWorkoutDay.id,
+                name: todayWorkoutDay.name,
+                isRest: todayWorkoutDay.isRest,
+                weekDay: todayWorkoutDay.weekDay,
+                estimatedDurationInSeconds: todayWorkoutDay.estimatedDurationInSeconds,
+                coverImageUrl: todayWorkoutDay.coverImageUrl ?? undefined,
+                exercisesCount: todayWorkoutDay.exercises.length,
+            },
+            workoutStreak,
+            consistencyByDay,
+        };
+    }
+    async calculateStreak(workoutPlanId, workoutDays, currentDate) {
+        const planWeekDays = new Set(workoutDays.map((d) => d.weekDay));
+        const restWeekDays = new Set(workoutDays.filter((d) => d.isRest).map((d) => d.weekDay));
+        const allSessions = await prisma.workoutSession.findMany({
+            where: {
+                workoutDay: { workoutPlanId },
+                completedAt: { not: null },
+            },
+            select: { startedAt: true },
+        });
+        const completedDates = new Set(allSessions.map((s) => dayjs.utc(s.startedAt).format("YYYY-MM-DD")));
+        let streak = 0;
+        let day = currentDate;
+        for (let i = 0; i < 365; i++) {
+            const weekDay = WEEKDAY_MAP[day.day()];
+            if (!planWeekDays.has(weekDay)) {
+                day = day.subtract(1, "day");
+                continue;
+            }
+            if (restWeekDays.has(weekDay)) {
+                streak++;
+                day = day.subtract(1, "day");
+                continue;
+            }
+            const dateKey = day.format("YYYY-MM-DD");
+            if (completedDates.has(dateKey)) {
+                streak++;
+                day = day.subtract(1, "day");
+                continue;
+            }
+            break;
+        }
+        return streak;
+    }
+}
