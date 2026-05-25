@@ -1,14 +1,15 @@
+import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-
-import * as prismaPkg from "../generated/prisma/index.js";
-const { PrismaClient } = prismaPkg;
+import { PrismaClient } from "@prisma/client"; // Importação universal e segura
 
 const connectionString = `${process.env.DATABASE_URL}`;
 
-const adapter = new PrismaPg({ connectionString });
+// Cria o pool do pg que o adaptador do Prisma necessita
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
 
-type PrismaClientType = InstanceType<typeof PrismaClient>;
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClientType };
+// Tipagem e verificação do escopo global de forma limpa para o TypeScript
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 export const prisma = globalForPrisma.prisma || new PrismaClient({ adapter });
 
