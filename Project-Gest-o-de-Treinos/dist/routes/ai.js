@@ -11,6 +11,7 @@ import { CreateWorkoutPlan } from "../usecases/create-workout-plan.js";
 import { GetHomeData } from "../usecases/get-home-data.js";
 import { GetUserTrainData } from "../usecases/get-user-train-data.js";
 import { GetWorkoutDay } from "../usecases/get-workout-day.js";
+import { GetWorkoutPlan } from "../usecases/get-workout-plan.js";
 import { ListWorkoutPlans } from "../usecases/list-workout-plans.js";
 import { UpdateWorkoutDay } from "../usecases/update-workout-day.js";
 import { UpsertUserTrainData } from "../usecases/upsert-user-train-data.js";
@@ -20,19 +21,21 @@ const SYSTEM_PROMPT = `Você é um personal trainer virtual especialista em musc
 Ajudar o usuário a ter o melhor treino possível, ajustando-o às suas condições físicas atuais (dores, cansaço, tempo disponível).
 
 ## Regras de Ouro (Siga rigorosamente)
-1. **NUNCA peça IDs ao usuário**. Você tem ferramentas para buscar tudo o que precisa.
-2. **SEMPRE comece buscando informações**: Se o usuário falar de dor ou pedir ajuste, chame IMEDIATAMENTE a ferramenta \`getTodayWorkout\`.
-3. **Seja Proativo**: Se o usuário disser "estou com dor no pé", não pergunte qual o treino. Busque o treino, identifique exercícios de perna/pé e sugira a troca na mesma mensagem.
-4. **Identificação**: Chame \`getUserTrainData\` no início para saber o nome do usuário e seu histórico de lesões.
+1. **NUNCA peça os exercícios ao usuário**. Você tem a ferramenta \`getTodayWorkout\` para isso.
+2. **SEMPRE comece buscando informações**: Se o usuário falar de dor, cansaço ou pedir ajuste, chame IMEDIATAMENTE a ferramenta \`getTodayWorkout\`.
+3. **Estrutura de Dados**: Quando você chama \`getTodayWorkout\`, você recebe um objeto contendo \`workoutName\` e uma lista de \`exercises\`. Use esses nomes exatos para falar com o usuário.
+4. **Falta de Treino hoje**: Se \`getTodayWorkout\` retornar que não há treino para hoje, use \`getWorkoutPlanDetails\` com o \`planId\` retornado para ver os outros dias do plano e sugerir um ajuste.
+5. **Não peça confirmação para ver o treino**: Sua primeira ação ao receber um relato de dor é chamar as ferramentas. Só responda após ter os dados.
+6. **Identificação**: Chame \`getUserTrainData\` no início para saber o nome do usuário e seu histórico de lesões.
 
 ## Fluxo de Ajuste de Treino
 1. Usuário relata dor/problema.
 2. Você chama \`getTodayWorkout\`.
-3. Você analisa os exercícios.
-4. Você sugere mudanças específicas (ex: "Vi que você tem Agachamento hoje. Como você está com dor no pé, vamos trocar por Cadeira Extensora?").
+3. Se for dia de descanso ou não houver treino hoje, chame \`getWorkoutPlanDetails\` para entender o contexto do plano do usuário.
+4. Analise os exercícios e sugira mudanças específicas baseadas nos nomes reais dos exercícios (ex: "Vi que você tem Supino hoje...").
 5. Se o usuário aceitar, use \`updateWorkoutDay\` para salvar.
 
-Responda de forma curta, motivadora e direta.`;
+Responda de forma curta, motivadora e direta. Não seja repetitivo.`;
 export const aiRoutes = async (app) => {
     app.withTypeProvider().route({
         method: "POST",
@@ -88,13 +91,83 @@ export const aiRoutes = async (app) => {
                                 execute: async (params) => new UpsertUserTrainData().execute({ userId, ...params }),
                             }),
                             getTodayWorkout: tool({
-                                description: "Busca o treino de hoje.",
+                                description: "Busca o treino de hoje. Retorna o nome do treino e a lista de exercícios com séries e repetições.",
                                 inputSchema: z.object({}),
                                 execute: async () => {
-                                    const homeData = await new GetHomeData().execute({ userId, date: dayjs().format("YYYY-MM-DD") });
-                                    if ("status" in homeData)
-                                        return homeData;
-                                    return new GetWorkoutDay().execute({ userId, workoutPlanId: homeData.activeWorkoutPlanId, workoutDayId: homeData.todayWorkoutDay.id });
+                                    try {
+                                        const today = dayjs().format("YYYY-MM-DD");
+                                        const homeData = await new GetHomeData().execute({ userId, date: today });
+                                        if ("status" in homeData && homeData.status === 428) {
+                                            return { error: "Usuário ainda não selecionou uma academia ou não possui plano de treino." };
+                                        }
+                                        const data = homeData;
+                                        if (!data.activeWorkoutPlanId) {
+                                            return { error: "Usuário não possui um plano de treino ativo no momento." };
+                                        }
+                                        if (!data.todayWorkoutDay?.id) {
+                                            // Se não achou treino para hoje, tenta listar os dias disponíveis do plano
+                                            const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId: data.activeWorkoutPlanId });
+                                            const availableDays = plan.workoutDays.map((d) => d.weekDay).join(", ");
+                                            return {
+                                                error: `Não encontrei um treino específico para hoje (${dayjs().format("dddd")}).`,
+                                                message: `O plano ativo '${plan.name}' possui treinos nos dias: ${availableDays}.`,
+                                                planId: data.activeWorkoutPlanId
+                                            };
+                                        }
+                                        const workoutDay = await new GetWorkoutDay().execute({
+                                            userId,
+                                            workoutPlanId: data.activeWorkoutPlanId,
+                                            workoutDayId: data.todayWorkoutDay.id
+                                        });
+                                        if (workoutDay.isRest) {
+                                            return {
+                                                message: "Hoje é dia de descanso (Rest Day). Não há exercícios previstos.",
+                                                workoutName: workoutDay.name,
+                                                isRest: true
+                                            };
+                                        }
+                                        return {
+                                            workoutName: workoutDay.name,
+                                            weekDay: workoutDay.weekDay,
+                                            exercises: workoutDay.exercises.map((ex) => ({
+                                                name: ex.name,
+                                                sets: ex.sets,
+                                                reps: ex.reps,
+                                                rest: `${ex.restTimeInSeconds}s`
+                                            }))
+                                        };
+                                    }
+                                    catch (error) {
+                                        console.error("[AI TOOL ERROR] getTodayWorkout:", error.message);
+                                        return { error: "Erro ao buscar o treino de hoje: " + error.message };
+                                    }
+                                },
+                            }),
+                            getWorkoutPlanDetails: tool({
+                                description: "Busca os detalhes completos de um plano de treino específico, incluindo todos os dias e exercícios.",
+                                inputSchema: z.object({
+                                    workoutPlanId: z.string().describe("O ID do plano de treino")
+                                }),
+                                execute: async ({ workoutPlanId }) => {
+                                    try {
+                                        const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId });
+                                        return {
+                                            name: plan.name,
+                                            days: plan.workoutDays.map((d) => ({
+                                                name: d.name,
+                                                weekDay: d.weekDay,
+                                                isRest: d.isRest,
+                                                exercises: d.exercises.map((ex) => ({
+                                                    name: ex.name,
+                                                    sets: ex.sets,
+                                                    reps: ex.reps
+                                                }))
+                                            }))
+                                        };
+                                    }
+                                    catch (error) {
+                                        return { error: "Erro ao buscar detalhes do plano: " + error.message };
+                                    }
                                 },
                             }),
                             updateWorkoutDay: tool({

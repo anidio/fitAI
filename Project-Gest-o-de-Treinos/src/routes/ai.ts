@@ -22,6 +22,7 @@ import { CreateWorkoutPlan } from "../usecases/create-workout-plan.js";
 import { GetHomeData } from "../usecases/get-home-data.js";
 import { GetUserTrainData } from "../usecases/get-user-train-data.js";
 import { GetWorkoutDay } from "../usecases/get-workout-day.js";
+import { GetWorkoutPlan } from "../usecases/get-workout-plan.js";
 import { ListWorkoutPlans } from "../usecases/list-workout-plans.js";
 import { UpdateWorkoutDay } from "../usecases/update-workout-day.js";
 import { UpsertUserTrainData } from "../usecases/upsert-user-train-data.js";
@@ -128,7 +129,7 @@ export const aiRoutes = async (app: FastifyInstance) => {
                     if (!data.todayWorkoutDay?.id) {
                       // Se não achou treino para hoje, tenta listar os dias disponíveis do plano
                       const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId: data.activeWorkoutPlanId });
-                      const availableDays = plan.workoutDays.map(d => d.weekDay).join(", ");
+                      const availableDays = plan.workoutDays.map((d: any) => d.weekDay).join(", ");
                       return { 
                         error: `Não encontrei um treino específico para hoje (${dayjs().format("dddd")}).`,
                         message: `O plano ativo '${plan.name}' possui treinos nos dias: ${availableDays}.`,
@@ -153,7 +154,7 @@ export const aiRoutes = async (app: FastifyInstance) => {
                     return {
                       workoutName: workoutDay.name,
                       weekDay: workoutDay.weekDay,
-                      exercises: workoutDay.exercises.map(ex => ({
+                      exercises: workoutDay.exercises.map((ex: any) => ({
                         name: ex.name,
                         sets: ex.sets,
                         reps: ex.reps,
@@ -176,11 +177,11 @@ export const aiRoutes = async (app: FastifyInstance) => {
                     const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId });
                     return {
                       name: plan.name,
-                      days: plan.workoutDays.map(d => ({
+                      days: plan.workoutDays.map((d: any) => ({
                         name: d.name,
                         weekDay: d.weekDay,
                         isRest: d.isRest,
-                        exercises: d.exercises.map(ex => ({
+                        exercises: d.exercises.map((ex: any) => ({
                           name: ex.name,
                           sets: ex.sets,
                           reps: ex.reps
