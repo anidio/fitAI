@@ -119,7 +119,7 @@ export const gymRoutes = async (app: FastifyInstance) => {
     },
     handler: async (request, reply) => {
       try {
-        const { name, email, password } = request.body;
+        const { name, email, password } = request.body as any;
 
         // Verifica se o usuário já existe para evitar duplicidade
         const existingUser = await prisma.user.findUnique({
@@ -215,7 +215,7 @@ export const gymRoutes = async (app: FastifyInstance) => {
           });
         }
 
-        const { name } = request.body;
+        const { name } = request.body as any;
 
         // Cria a unidade no PostgreSQL gerando um ID real automático
         const newGym = await prisma.gym.create({

@@ -17,7 +17,7 @@ export const homeRoutes = async (app: FastifyInstance) => {
       summary: "Dados da página inicial",
       description: "Retorna os dados do painel inicial do aluno para a data informada.",
       params: z.object({
-        date: z.iso.date(),
+        date: z.string(),
       }),
       response: {
         200: HomeDataSchema,
@@ -28,6 +28,9 @@ export const homeRoutes = async (app: FastifyInstance) => {
       },
     },
     handler: async (request, reply) => {
+      const { date } = request.params as any;
+      const { userId } = request as any;
+
       try {
         const session = await auth.api.getSession({
           headers: fromNodeHeaders(request.headers),

@@ -20,6 +20,8 @@ export const statsRoutes = async (app) => {
             },
         },
         handler: async (request, reply) => {
+            const { from, to } = request.query;
+            const { userId } = request;
             try {
                 const session = await auth.api.getSession({
                     headers: fromNodeHeaders(request.headers),

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
 import { useQueryStates, parseAsBoolean, parseAsString } from "nuqs";
 import { Sparkles, X, ArrowUp } from "lucide-react";
 import { Streamdown } from "streamdown";
@@ -37,7 +36,7 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
   const [chatParams, setChatParams] = useQueryStates({
     chat_open: parseAsBoolean.withDefault(false),
     chat_initial_message: parseAsString,
-    ai_provider: parseAsString.withDefault("google"),
+    ai_provider: parseAsString.withDefault("groq"),
   });
 
   const baseUrl = typeof window !== "undefined" 
@@ -47,14 +46,19 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
   // Log para debug no navegador
   console.log("Provedor atual no componente:", chatParams.ai_provider);
 
-  const { messages, sendMessage, status, error } = useChat({
+  const { 
+    messages, 
+    input, 
+    handleInputChange, 
+    handleSubmit, 
+    append, 
+    status, 
+    error 
+  } = useChat({
     // A chave força o React a destruir e recriar o chat ao trocar de IA
     key: `ai-${chatParams.ai_provider}`, 
-    transport: new DefaultChatTransport({
-      // Passamos o provedor na URL para não ter erro
-      api: `${baseUrl}/ai?provider=${chatParams.ai_provider}`,
-      credentials: "include",
-    }),
+    api: `${baseUrl}/ai?provider=${chatParams.ai_provider}`,
+    credentials: "include",
   });
 
   useEffect(() => {
@@ -73,9 +77,9 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
   useEffect(() => {
     if (embedded && initialMessage && !initialMessageSentRef.current) {
       initialMessageSentRef.current = true;
-      sendMessage({ text: initialMessage });
+      append({ role: "user", content: initialMessage });
     }
-  }, [embedded, initialMessage, sendMessage]);
+  }, [embedded, initialMessage, append]);
 
   useEffect(() => {
     if (
@@ -85,14 +89,14 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
       !initialMessageSentRef.current
     ) {
       initialMessageSentRef.current = true;
-      sendMessage({ text: chatParams.chat_initial_message });
+      append({ role: "user", content: chatParams.chat_initial_message });
       setChatParams({ chat_initial_message: null });
     }
   }, [
     embedded,
     chatParams.chat_open,
     chatParams.chat_initial_message,
-    sendMessage,
+    append,
     setChatParams,
   ]);
 
@@ -116,12 +120,12 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
   };
 
   const onSubmit = (values: ChatFormValues) => {
-    sendMessage({ text: values.message });
+    append({ role: "user", content: values.message });
     form.reset();
   };
 
   const handleSuggestion = (text: string) => {
-    sendMessage({ text });
+    append({ role: "user", content: text });
   };
 
   const isStreaming = status === "streaming";
@@ -196,28 +200,18 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
               }
             >
               {message.role === "assistant" ? (
-                message.parts.map((part, index) =>
-                  part.type === "text" ? (
-                    <Streamdown
-                      key={index}
-                      isAnimating={
-                        isStreaming &&
-                        messages[messages.length - 1]?.id === message.id
-                      }
-                      className="font-heading text-sm leading-relaxed text-foreground"
-                    >
-                      {part.text}
-                    </Streamdown>
-                  ) : null,
-                )
+                <Streamdown
+                  isAnimating={
+                    isStreaming &&
+                    messages[messages.length - 1]?.id === message.id
+                  }
+                  className="font-heading text-sm leading-relaxed text-foreground"
+                >
+                  {message.content}
+                </Streamdown>
               ) : (
                 <p className="font-heading text-sm leading-relaxed text-primary-foreground">
-                  {message.parts
-                    .filter((part) => part.type === "text")
-                    .map(
-                      (part) => (part as { type: "text"; text: string }).text,
-                    )
-                    .join("")}
+                  {message.content}
                 </p>
               )}
             </div>

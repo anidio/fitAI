@@ -118,13 +118,14 @@ export const meRoutes = async (app: FastifyInstance) => {
           });
         }
 
+        const { weightInGrams, heightInCentimeters, age, bodyFatPercentage } = request.body as any;
         const upsertUserTrainData = new UpsertUserTrainData();
         const result = await upsertUserTrainData.execute({
           userId: session.user.id,
-          weightInGrams: request.body.weightInGrams,
-          heightInCentimeters: request.body.heightInCentimeters,
-          age: request.body.age,
-          bodyFatPercentage: request.body.bodyFatPercentage,
+          weightInGrams,
+          heightInCentimeters,
+          age,
+          bodyFatPercentage,
         });
 
         return reply.status(200).send(result);
@@ -168,7 +169,7 @@ export const meRoutes = async (app: FastifyInstance) => {
           });
         }
 
-        const { gymId } = request.body;
+        const { gymId } = request.body as any;
 
         // Atualiza a tabela User no banco vinculando o ID corporativo da academia
         await prisma.user.update({

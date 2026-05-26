@@ -13,7 +13,7 @@ export const homeRoutes = async (app) => {
             summary: "Dados da página inicial",
             description: "Retorna os dados do painel inicial do aluno para a data informada.",
             params: z.object({
-                date: z.iso.date(),
+                date: z.string(),
             }),
             response: {
                 200: HomeDataSchema,
@@ -24,6 +24,8 @@ export const homeRoutes = async (app) => {
             },
         },
         handler: async (request, reply) => {
+            const { date } = request.params;
+            const { userId } = request;
             try {
                 const session = await auth.api.getSession({
                     headers: fromNodeHeaders(request.headers),

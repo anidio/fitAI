@@ -92,7 +92,8 @@ await app.register(fastifyCors, {
     "https://fit-ai-bhv2.vercel.app"
   ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-AI-Provider"],
+  exposedHeaders: ["X-AI-Provider"],
   credentials: true,
 });
 

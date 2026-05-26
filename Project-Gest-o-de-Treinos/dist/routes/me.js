@@ -100,13 +100,14 @@ export const meRoutes = async (app) => {
                         code: "UNAUTHORIZED",
                     });
                 }
+                const { weightInGrams, heightInCentimeters, age, bodyFatPercentage } = request.body;
                 const upsertUserTrainData = new UpsertUserTrainData();
                 const result = await upsertUserTrainData.execute({
                     userId: session.user.id,
-                    weightInGrams: request.body.weightInGrams,
-                    heightInCentimeters: request.body.heightInCentimeters,
-                    age: request.body.age,
-                    bodyFatPercentage: request.body.bodyFatPercentage,
+                    weightInGrams,
+                    heightInCentimeters,
+                    age,
+                    bodyFatPercentage,
                 });
                 return reply.status(200).send(result);
             }

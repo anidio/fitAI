@@ -134,7 +134,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       summary: "Buscar plano de treino",
       description: "Retorna os detalhes de um plano de treino específico do usuário autenticado.",
       params: z.object({
-        workoutPlanId: z.uuid(),
+        workoutPlanId: z.string().uuid(),
       }),
       response: {
         200: GetWorkoutPlanSchema,
@@ -188,8 +188,8 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       summary: "Buscar dia de treino",
       description: "Retorna os detalhes de um dia de treino específico dentro de um plano.",
       params: z.object({
-        workoutPlanId: z.uuid(),
-        workoutDayId: z.uuid(),
+        workoutPlanId: z.string().uuid(),
+        workoutDayId: z.string().uuid(),
       }),
       response: {
         200: GetWorkoutDaySchema,
@@ -244,8 +244,8 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       summary: "Iniciar sessão de treino",
       description: "Inicia uma nova sessão de treino para o dia selecionado de um plano ativo.",
       params: z.object({
-        workoutPlanId: z.uuid(),
-        workoutDayId: z.uuid(),
+        workoutPlanId: z.string().uuid(),
+        workoutDayId: z.string().uuid(),
       }),
       response: {
         201: StartWorkoutSessionSchema,
@@ -316,9 +316,9 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       summary: "Atualizar sessão de treino",
       description: "Atualiza o status de conclusão de uma sessão de treino em andamento.",
       params: z.object({
-        workoutPlanId: z.uuid(),
-        workoutDayId: z.uuid(),
-        sessionId: z.uuid(),
+        workoutPlanId: z.string().uuid(),
+        workoutDayId: z.string().uuid(),
+        sessionId: z.string().uuid(),
       }),
       body: UpdateWorkoutSessionBodySchema,
       response: {
@@ -406,7 +406,10 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       tags: ["Workout Plan B2B"],
       summary: "Atribuir template a um aluno",
       description: "Permite que um personal atribua um template a um aluno pelo e-mail.",
-      body: z.object({ templateId: z.string().uuid(), studentEmail: z.string().email() }),
+      body: z.object({
+        templateId: z.string().uuid(),
+        studentEmail: z.string().email(),
+      }),
       response: { 201: z.object({ success: z.boolean(), message: z.string() }), 401: ErrorSchema, 403: ErrorSchema, 404: ErrorSchema, 500: ErrorSchema },
     },
     handler: async (request, reply) => {
@@ -422,7 +425,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
           });
         }
 
-        const { templateId, studentEmail } = request.body;
+        const { templateId, studentEmail } = request.body as any;
         const templatePlan = await prisma.workoutPlan.findUnique({
           where: { id: templateId },
           include: { workoutDays: { include: { exercises: true } } },

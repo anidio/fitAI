@@ -3,18 +3,26 @@ import { openai } from "@ai-sdk/openai";
 import { xai } from "@ai-sdk/xai";
 import { groq } from "@ai-sdk/groq";
 import {
-  convertToModelMessages,
+  convertToCoreMessages,
   LanguageModel,
-  stepCountIs,
   streamText,
   tool,
-  UIMessage,
 } from "ai";
 import { fromNodeHeaders } from "better-auth/node";
 import dayjs from "dayjs";
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import z from "zod";
+
+//#region debug-point ai-no-response-bug
+const reportDebug = (event: string, data: any) => {
+  fetch("http://127.0.0.1:7777/event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Session-ID": "ai-no-response-bug" },
+    body: JSON.stringify({ event, data, timestamp: new Date().toISOString() })
+  }).catch(() => {});
+};
+//#endregion
 
 import { WeekDay } from "@prisma/client";
 import { auth } from "../lib/auth.js";
@@ -34,20 +42,13 @@ Ajudar o usuário a ter o melhor treino possível, ajustando-o às suas condiç�
 
 ## Regras de Ouro (Siga rigorosamente)
 1. **NUNCA peça os exercícios ao usuário**. Você tem a ferramenta \`getTodayWorkout\` para isso.
-2. **SEMPRE comece buscando informações**: Se o usuário falar de dor, cansaço ou pedir ajuste, chame IMEDIATAMENTE a ferramenta \`getTodayWorkout\`.
-3. **Estrutura de Dados**: Quando você chama \`getTodayWorkout\`, você recebe um objeto contendo \`workoutName\` e uma lista de \`exercises\`. Use esses nomes exatos para falar com o usuário.
-4. **Falta de Treino hoje**: Se \`getTodayWorkout\` retornar que não há treino para hoje, use \`getWorkoutPlanDetails\` com o \`planId\` retornado para ver os outros dias do plano e sugerir um ajuste.
-5. **Não peça confirmação para ver o treino**: Sua primeira ação ao receber um relato de dor é chamar as ferramentas. Só responda após ter os dados.
-6. **Identificação**: Chame \`getUserTrainData\` no início para saber o nome do usuário e seu histórico de lesões.
+2. **SEMPRE use ferramentas primeiro**: Se o usuário falar de dor, cansaço ou pedir ajuste, você DEVE chamar a ferramenta \`getTodayWorkout\` antes de dar qualquer resposta textual.
+3. **Análise de Dados**: Ao receber o resultado de \`getTodayWorkout\`, analise a lista de exercícios. Se o usuário relatou dor, identifique quais exercícios podem ser prejudiciais e sugira a troca.
+4. **Falta de Treino hoje**: Se \`getTodayWorkout\` indicar que não há treino para hoje, use \`getWorkoutPlanDetails\` com o \`planId\` para entender o plano e sugerir um ajuste.
+5. **Seja Direto**: Não peça permissão para analisar o treino. Apenas faça a análise e apresente a sugestão de ajuste.
+6. **Confirmação**: Só use \`updateWorkoutDay\` se o usuário concordar explicitamente com a troca sugerida.
 
-## Fluxo de Ajuste de Treino
-1. Usuário relata dor/problema.
-2. Você chama \`getTodayWorkout\`.
-3. Se for dia de descanso ou não houver treino hoje, chame \`getWorkoutPlanDetails\` para entender o contexto do plano do usuário.
-4. Analise os exercícios e sugira mudanças específicas baseadas nos nomes reais dos exercícios (ex: "Vi que você tem Supino hoje...").
-5. Se o usuário aceitar, use \`updateWorkoutDay\` para salvar.
-
-Responda de forma curta, motivadora e direta. Não seja repetitivo.`;
+Responda de forma curta, motivadora e direta. Não diga "Vou verificar seu treino", apenas verifique e responda com a solução.`;
 
 export const aiRoutes = async (app: FastifyInstance) => {
   app.withTypeProvider<ZodTypeProvider>().route({
@@ -65,190 +66,230 @@ export const aiRoutes = async (app: FastifyInstance) => {
       const body = request.body as any;
       const query = request.query as any;
       
-      // Forçamos o Groq (Llama) como prioridade absoluta agora
       const providerRequested = query.provider || body.provider || "groq";
-      const messages = body.messages as UIMessage[];
+      // O useChat do Vercel AI SDK envia 'messages' no corpo
+      const messages = body.messages || [];
+      const coreMessages = convertToCoreMessages(messages);
 
-      // Sequência de tentativa: Groq -> Gemini -> OpenAI
-      const providersToTry = ["groq", "google", "openai"];
+      console.log(`[AI REQUEST] Usuário: ${userId} | Provedor: ${providerRequested} | Mensagens: ${coreMessages.length}`);
 
-      console.log(`[AI REQUEST] Usuário: ${userId} | Provedor: ${providerRequested}`);
-
-      const getModel = (p: string): LanguageModel => {
+      const getModel = (p: string) => {
         if (p === "groq") {
           if (!process.env.GROQ_API_KEY) throw new Error("GROQ_API_KEY ausente");
           return groq("llama-3.3-70b-versatile");
         }
+        if (p === "xai") {
+          if (!process.env.XAI_API_KEY) throw new Error("XAI_API_KEY ausente");
+          return xai("grok-2-1212");
+        }
         if (p === "google") {
           if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) throw new Error("GOOGLE_API_KEY ausente");
-          return google("gemini-1.5-flash"); // Voltando para o nome base
+          return google("gemini-1.5-flash"); 
         }
-        return openai("gpt-4o-mini");
+        if (p === "openai") {
+          if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY ausente");
+          return openai("gpt-4o-mini");
+        }
+        throw new Error(`Provedor ${p} não suportado`);
       };
 
-      let lastError: any = null;
+      try {
+        const model = getModel(providerRequested);
+        
+        console.log(`[AI] Criando stream com modelo ${providerRequested}`);
+        const result = streamText({
+          model: model as any,
+          system: SYSTEM_PROMPT,
+          messages: coreMessages,
+          tools: {
+            getUserTrainData: tool({
+              description: "Busca dados de treino.",
+              parameters: z.object({}),
+              execute: async () => {
+                console.log(`[TOOL] Executando getUserTrainData para ${userId}`);
+                return new GetUserTrainData().execute({ userId });
+              },
+            }),
+            updateUserTrainData: tool({
+              description: "Atualiza dados de treino.",
+              parameters: z.object({ weightInGrams: z.number(), heightInCentimeters: z.number(), age: z.number(), bodyFatPercentage: z.number(), injuryNotes: z.string().optional() }),
+              execute: async (params) => {
+                console.log(`[TOOL] Executando updateUserTrainData para ${userId}`);
+                return new UpsertUserTrainData().execute({ userId, ...params });
+              },
+            }),
+            getTodayWorkout: tool({
+              description: "Busca o treino de hoje. Retorna o ID do dia, nome do treino e a lista de exercícios com séries e repetições.",
+              parameters: z.object({}),
+              execute: async () => {
+                console.log(`[TOOL] Executando getTodayWorkout para ${userId}`);
+                try {
+                  const today = dayjs().format("YYYY-MM-DD");
+                  const homeData = await new GetHomeData().execute({ userId, date: today });
+                  
+                  if ("status" in homeData && homeData.status === 428) {
+                    return { error: "Usuário ainda não selecionou uma academia ou não possui plano de treino." };
+                  }
 
-      for (const p of providersToTry) {
-        try {
-          console.log(`[AI] Tentando ${p}...`);
-          const model = getModel(p);
-          
-          const result = streamText({
-            model,
-            system: SYSTEM_PROMPT,
-            messages: await convertToModelMessages(messages),
-            stopWhen: stepCountIs(5),
-            tools: {
-              getUserTrainData: tool({
-                description: "Busca dados de treino.",
-                inputSchema: z.object({}),
-                execute: async () => new GetUserTrainData().execute({ userId }),
-              }),
-              updateUserTrainData: tool({
-                description: "Atualiza dados de treino.",
-                inputSchema: z.object({ weightInGrams: z.number(), heightInCentimeters: z.number(), age: z.number(), bodyFatPercentage: z.number(), injuryNotes: z.string().optional() }),
-                execute: async (params) => new UpsertUserTrainData().execute({ userId, ...params }),
-              }),
-              getTodayWorkout: tool({
-                description: "Busca o treino de hoje. Retorna o nome do treino e a lista de exercícios com séries e repetições.",
-                inputSchema: z.object({}),
-                execute: async () => {
-                  try {
-                    const today = dayjs().format("YYYY-MM-DD");
-                    const homeData = await new GetHomeData().execute({ userId, date: today });
-                    
-                    if ("status" in homeData && homeData.status === 428) {
-                      return { error: "Usuário ainda não selecionou uma academia ou não possui plano de treino." };
-                    }
+                  const data = homeData as any;
+                  if (!data.activeWorkoutPlanId) {
+                    return { error: "Usuário não possui um plano de treino ativo no momento." };
+                  }
 
-                    const data = homeData as any;
-                    if (!data.activeWorkoutPlanId) {
-                      return { error: "Usuário não possui um plano de treino ativo no momento." };
-                    }
+                  if (!data.todayWorkoutDay?.id) {
+                    const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId: data.activeWorkoutPlanId });
+                    const availableDays = plan.workoutDays.map((d: any) => d.weekDay).join(", ");
+                    return { 
+                      error: `Não encontrei um treino específico para hoje (${dayjs().format("dddd")}).`,
+                      message: `O plano ativo '${plan.name}' possui treinos nos dias: ${availableDays}.`,
+                      planId: data.activeWorkoutPlanId
+                    };
+                  }
 
-                    if (!data.todayWorkoutDay?.id) {
-                      // Se não achou treino para hoje, tenta listar os dias disponíveis do plano
-                      const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId: data.activeWorkoutPlanId });
-                      const availableDays = plan.workoutDays.map((d: any) => d.weekDay).join(", ");
-                      return { 
-                        error: `Não encontrei um treino específico para hoje (${dayjs().format("dddd")}).`,
-                        message: `O plano ativo '${plan.name}' possui treinos nos dias: ${availableDays}.`,
-                        planId: data.activeWorkoutPlanId
-                      };
-                    }
+                  const workoutDay = await new GetWorkoutDay().execute({ 
+                    userId, 
+                    workoutPlanId: data.activeWorkoutPlanId, 
+                    workoutDayId: data.todayWorkoutDay.id 
+                  });
 
-                    const workoutDay = await new GetWorkoutDay().execute({ 
-                      userId, 
-                      workoutPlanId: data.activeWorkoutPlanId, 
-                      workoutDayId: data.todayWorkoutDay.id 
-                    });
-
-                    if (workoutDay.isRest) {
-                      return { 
-                        message: "Hoje é dia de descanso (Rest Day). Não há exercícios previstos.", 
-                        workoutName: workoutDay.name,
-                        isRest: true 
-                      };
-                    }
-
-                    return {
+                  if (workoutDay.isRest) {
+                    return { 
+                      message: "Hoje é dia de descanso (Rest Day). Não há exercícios previstos.", 
                       workoutName: workoutDay.name,
-                      weekDay: workoutDay.weekDay,
-                      exercises: workoutDay.exercises.map((ex: any) => ({
+                      isRest: true 
+                    };
+                  }
+
+                  return {
+                    workoutDayId: data.todayWorkoutDay.id,
+                    workoutName: workoutDay.name,
+                    weekDay: workoutDay.weekDay,
+                    exercises: workoutDay.exercises.map((ex: any) => ({
+                      name: ex.name,
+                      sets: ex.sets,
+                      reps: ex.reps,
+                      rest: `${ex.restTimeInSeconds}s`
+                    }))
+                  };
+                } catch (error: any) {
+                  console.error("[AI TOOL ERROR] getTodayWorkout:", error.message);
+                  return { error: "Erro ao buscar o treino de hoje: " + error.message };
+                }
+              },
+            }),
+            getWorkoutPlanDetails: tool({
+              description: "Busca os detalhes completos de um plano de treino específico, incluindo todos os dias e exercícios.",
+              parameters: z.object({ 
+                workoutPlanId: z.string().describe("O ID do plano de treino") 
+              }),
+              execute: async ({ workoutPlanId }) => {
+                console.log(`[TOOL] Executando getWorkoutPlanDetails para ${userId}`);
+                try {
+                  const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId });
+                  return {
+                    name: plan.name,
+                    days: plan.workoutDays.map((d: any) => ({
+                      name: d.name,
+                      weekDay: d.weekDay,
+                      isRest: d.isRest,
+                      exercises: d.exercises.map((ex: any) => ({
                         name: ex.name,
                         sets: ex.sets,
-                        reps: ex.reps,
-                        rest: `${ex.restTimeInSeconds}s`
+                        reps: ex.reps
                       }))
-                    };
-                  } catch (error: any) {
-                    console.error("[AI TOOL ERROR] getTodayWorkout:", error.message);
-                    return { error: "Erro ao buscar o treino de hoje: " + error.message };
-                  }
-                },
+                    }))
+                  };
+                } catch (error: any) {
+                  return { error: "Erro ao buscar detalhes do plano: " + error.message };
+                }
+              },
+            }),
+            updateWorkoutDay: tool({
+              description: "Atualiza um dia de treino específico (troca exercícios, muda nome ou define como descanso).",
+              parameters: z.object({ 
+                workoutDayId: z.string().describe("O ID do dia obtido via getTodayWorkout"), 
+                name: z.string().optional(), 
+                isRest: z.boolean().optional(),
+                exercises: z.array(z.object({ 
+                  name: z.string(), 
+                  sets: z.number(), 
+                  reps: z.number(), 
+                  restTimeInSeconds: z.number(), 
+                  order: z.number() 
+                })).optional() 
               }),
-              getWorkoutPlanDetails: tool({
-                description: "Busca os detalhes completos de um plano de treino específico, incluindo todos os dias e exercícios.",
-                inputSchema: z.object({ 
-                  workoutPlanId: z.string().describe("O ID do plano de treino") 
-                }),
-                execute: async ({ workoutPlanId }) => {
-                  try {
-                    const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId });
-                    return {
-                      name: plan.name,
-                      days: plan.workoutDays.map((d: any) => ({
-                        name: d.name,
-                        weekDay: d.weekDay,
-                        isRest: d.isRest,
-                        exercises: d.exercises.map((ex: any) => ({
-                          name: ex.name,
-                          sets: ex.sets,
-                          reps: ex.reps
-                        }))
-                      }))
-                    };
-                  } catch (error: any) {
-                    return { error: "Erro ao buscar detalhes do plano: " + error.message };
-                  }
-                },
-              }),
-              updateWorkoutDay: tool({
-                description: "Atualiza um dia de treino específico (troca exercícios, muda nome ou define como descanso).",
-                inputSchema: z.object({ 
-                  workoutDayId: z.string().describe("O ID do dia obtido via getTodayWorkout"), 
-                  name: z.string().optional(), 
-                  isRest: z.boolean().optional(),
-                  exercises: z.array(z.object({ 
-                    name: z.string(), 
-                    sets: z.number(), 
-                    reps: z.number(), 
-                    restTimeInSeconds: z.number(), 
-                    order: z.number() 
-                  })).optional() 
-                }),
-                execute: async (params) => new UpdateWorkoutDay().execute({ userId, ...params }),
-              }),
-              getWorkoutPlans: tool({
-                description: "Lista todos os planos de treino do usuário.",
-                inputSchema: z.object({}),
-                execute: async () => new ListWorkoutPlans().execute({ userId }),
-              }),
-              createWorkoutPlan: tool({
-                description: "Cria um novo plano de treino completo de 7 dias.",
-                inputSchema: z.object({
+              execute: async (params) => {
+                console.log(`[TOOL] Executando updateWorkoutDay para ${userId}`);
+                return new UpdateWorkoutDay().execute({ userId, ...params });
+              },
+            }),
+            getWorkoutPlans: tool({
+              description: "Lista todos os planos de treino do usuário.",
+              parameters: z.object({}),
+              execute: async () => new ListWorkoutPlans().execute({ userId }),
+            }),
+            createWorkoutPlan: tool({
+              description: "Cria um novo plano de treino completo de 7 dias.",
+              parameters: z.object({
+                name: z.string(),
+                workoutDays: z.array(z.object({
                   name: z.string(),
-                  workoutDays: z.array(z.object({
-                    name: z.string(),
-                    weekDay: z.enum(WeekDay),
-                    isRest: z.boolean(),
-                    estimatedDurationInSeconds: z.number(),
-                    coverImageUrl: z.string().url(),
-                    exercises: z.array(z.object({ order: z.number(), name: z.string(), sets: z.number(), reps: z.number(), restTimeInSeconds: z.number() })),
-                  })),
-                }),
-                execute: async (input) => new CreateWorkoutPlan().execute({ userId, name: input.name, workoutDays: input.workoutDays }),
+                  weekDay: z.enum(Object.keys(WeekDay) as [string, ...string[]]),
+                  isRest: z.boolean(),
+                  estimatedDurationInSeconds: z.number(),
+                  coverImageUrl: z.string().url(),
+                  exercises: z.array(z.object({ order: z.number(), name: z.string(), sets: z.number(), reps: z.number(), restTimeInSeconds: z.number() })),
+                })),
               }),
-            },
-          });
+              execute: async (input) => new CreateWorkoutPlan().execute({ userId, name: input.name, workoutDays: input.workoutDays as any }),
+            }),
+          },
+          maxSteps: 10,
+          onStepFinish: (event) => {
+            console.log(`[AI STEP] Passo finalizado. Tool calls: ${event.toolCalls?.length || 0}`);
+          },
+          onFinish: () => {
+            console.log(`[AI] Stream finalizada com sucesso para ${userId}`);
+          }
+        });
 
-          const response = result.toUIMessageStreamResponse();
-          console.log(`[AI] Sucesso total com ${p}!`);
-          
-          reply.header("X-AI-Provider", p);
-          reply.status(response.status);
-          response.headers.forEach((v, k) => reply.header(k, v));
-          return reply.send(response.body);
+        console.log(`[AI] Iniciando stream de dados para ${providerRequested}`);
+        reportDebug("stream-start", { userId, provider: providerRequested });
+        
+        const origin = request.headers.origin || "http://localhost:3000";
+        
+        const dataStreamResponse = result.toDataStreamResponse({
+          headers: {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "X-AI-Provider": providerRequested,
+          }
+        });
 
-        } catch (error: any) {
-          console.error(`[AI] Falha no ${p}: ${error.message}`);
-          lastError = error;
-          // Se for erro de quota ou não encontrado, tenta o próximo
-          continue;
+        // Copiar headers para o Fastify
+        dataStreamResponse.headers.forEach((value, key) => {
+          reply.header(key, value);
+        });
+
+        reportDebug("stream-ready", { status: dataStreamResponse.status });
+
+        return reply.status(dataStreamResponse.status).send(dataStreamResponse.body);
+
+      } catch (error: any) {
+        console.error(`[AI ERROR]`, error);
+        
+        // Se já começamos a enviar a resposta, não podemos usar reply.status().send()
+        if (reply.raw.headersSent) {
+          console.error("[AI ERROR] Erro ocorreu após headers terem sido enviados.");
+          reply.raw.end();
+          return;
         }
+        
+        return reply.status(500).send({ 
+          error: "Erro na comunicação com o provedor de IA",
+          details: error.message 
+        });
       }
-
-      return reply.status(500).send({ error: lastError?.message || "Falha total" });
     },
   });
 };

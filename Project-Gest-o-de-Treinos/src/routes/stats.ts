@@ -28,6 +28,9 @@ export const statsRoutes = async (app: FastifyInstance) => {
       },
     },
     handler: async (request, reply) => {
+      const { from, to } = request.query as any;
+      const { userId } = request as any;
+
       try {
         const session = await auth.api.getSession({
           headers: fromNodeHeaders(request.headers),

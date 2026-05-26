@@ -1,47 +1,38 @@
 # Debug Session: ai-no-response-bug
 
-- **Status**: [OPEN]
-- **Symptoms**: AI does not respond in the chat drawer, even after setting `OPENAI_API_KEY` in `.env`.
-- **Created at**: 2026-05-25
+## 📋 Status
+- [x] Session ID: `ai-no-response-bug`
+- [ ] Status: [OPEN]
+- [ ] Created: 2026-05-25
 
-## 📋 Hypotheses
+## 🎯 Symptoms
+- User asks AI to adjust workout.
+- Logs show "submitted" then "ready" but no text response.
+- Browser error: `Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received`.
 
-1. **H1 (Env Loading)**: The backend is not loading the `.env` file correctly, leaving `process.env.OPENAI_API_KEY` empty.
-2. **H2 (Auth Failure)**: The `auth` middleware is returning a 401/403 before the AI logic is even reached.
-3. **H3 (OpenAI SDK Error)**: The OpenAI SDK is throwing an error (invalid key, quota, etc.) that isn't being caught or logged clearly.
-4. **H4 (CORS/URL Mismatch)**: The frontend is attempting to call a different URL than where the backend is running (e.g., Production vs Localhost).
-5. **H5 (Streaming Blocked)**: Fastify or the network is buffering/blocking the RSC/AI stream response.
-6. **H6 (Invalid Hook Usage)**: `useChat` is being used with `sendMessage` which does not exist in the installed version, and `transport` might be misconfigured. [NEW]
+## 🔍 Hypotheses
+- **H1: Empty Stream**: The model calls tools but generates no text. (Verified: Gemini returns 404/Empty stream)
+- **H2: Tool Execution Loop**: Model stuck in infinite tool loop.
+- **H3: Backend Error during Stream**: Error occurs after headers are sent, closing the stream abruptly. (Verified: headersSent logic was preventing fallback)
+- **H4: Frontend Parsing Issue**: Frontend fails to process the new stream format.
+- **H5: Environment Variable Mismatch**: Groq key using XAI_API_KEY name. (Verified: .env has XAI_API_KEY but code expected GROQ_API_KEY)
 
-## 🛠️ Instrumentation Plan
+## 🧪 Evidence Collection Plan
+1. [x] Start Debug Server.
+2. [x] Instrument backend `ai.ts` to log tool execution and stream status.
+3. [x] Reproduce the issue and collect logs.
+4. [x] Fix streaming fallback logic.
+5. [x] Fix environment variable mismatch for Groq.
+6. [x] Update Google model name.
 
-1. **Backend Route (`ai.ts`)**:
-    - Log when a request is received.
-    - Log the session status (auth).
-    - Log if `OPENAI_API_KEY` is present (masking most of it).
-    - Log any errors caught during `streamText`.
-2. **Frontend Chat (`chat.tsx`)**:
-    - Log the `api` URL being used.
-    - Log when `sendMessage` is called.
-    - Log any errors caught by `useChat`.
 
-## 📈 Evidence Collection
+## 📓 Log Analysis
+- **Observation 1**: Google Gemini returned 404 error with `gemini-1.5-flash`.
+- **Observation 2**: Manual streaming (`reply.raw`) bypassed Fastify CORS plugin, causing browser to block responses.
+- **Observation 3**: Initial implementation of manual stream didn't handle non-200 responses before sending headers, preventing effective fallback.
 
-| Timestamp | Source | Event | Data | Hypothesis |
-|-----------|--------|-------|------|------------|
-| | | | | |
+## 🛠️ Fix & Verification
+1. [x] Update Google model name to `gemini-1.5-flash-latest`.
+2. [x] Add manual CORS headers in `reply.raw.writeHead`.
+3. [x] Add check for `response.status !== 200` to trigger provider fallback before committing to the response.
 
-## 🧪 Fix Verification
-
-- [ ] H1: Checked env loading.
-- [ ] H2: Checked auth status.
-- [ ] H3: Checked OpenAI SDK response.
-- [ ] H4: Checked request URL/CORS.
-- [ ] H5: Checked streaming response.
-
-## 🧹 Cleanup Checklist
-
-- [ ] Remove instrumentation from `ai.ts`
-- [ ] Remove instrumentation from `chat.tsx`
-- [ ] Delete `debug-ai-no-response-bug.md`
-- [ ] Stop Debug Server
