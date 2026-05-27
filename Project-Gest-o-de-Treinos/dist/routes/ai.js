@@ -2,7 +2,7 @@ import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { xai } from "@ai-sdk/xai";
 import { groq } from "@ai-sdk/groq";
-import { convertToCoreMessages, streamText, tool, } from "ai";
+import { convertToModelMessages, streamText, tool, } from "ai";
 import { fromNodeHeaders } from "better-auth/node";
 import dayjs from "dayjs";
 import z from "zod";
@@ -56,7 +56,7 @@ export const aiRoutes = async (app) => {
             const providerRequested = query.provider || body.provider || "groq";
             // O useChat do Vercel AI SDK envia 'messages' no corpo
             const messages = body.messages || [];
-            const coreMessages = convertToCoreMessages(messages);
+            const coreMessages = await convertToModelMessages(messages);
             console.log(`[AI REQUEST] Usuário: ${userId} | Provedor: ${providerRequested} | Mensagens: ${coreMessages.length}`);
             const getModel = (p) => {
                 if (p === "groq") {
@@ -164,7 +164,8 @@ export const aiRoutes = async (app) => {
                             parameters: z.object({
                                 workoutPlanId: z.string().describe("O ID do plano de treino")
                             }),
-                            execute: async ({ workoutPlanId }) => {
+                            execute: async (params) => {
+                                const { workoutPlanId } = params;
                                 console.log(`[TOOL] Executando getWorkoutPlanDetails para ${userId}`);
                                 try {
                                     const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId });
@@ -227,7 +228,6 @@ export const aiRoutes = async (app) => {
                             execute: async (input) => new CreateWorkoutPlan().execute({ userId, name: input.name, workoutDays: input.workoutDays }),
                         }),
                     },
-                    maxSteps: 10,
                     onStepFinish: (event) => {
                         console.log(`[AI STEP] Passo finalizado. Tool calls: ${event.toolCalls?.length || 0}`);
                     },
@@ -238,7 +238,7 @@ export const aiRoutes = async (app) => {
                 console.log(`[AI] Iniciando stream de dados para ${providerRequested}`);
                 reportDebug("stream-start", { userId, provider: providerRequested });
                 const origin = request.headers.origin || "http://localhost:3000";
-                const dataStreamResponse = result.toDataStreamResponse({
+                const dataStreamResponse = result.toTextStreamResponse({
                     headers: {
                         "Access-Control-Allow-Origin": origin,
                         "Access-Control-Allow-Credentials": "true",

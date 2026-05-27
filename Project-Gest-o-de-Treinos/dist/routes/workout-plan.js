@@ -80,12 +80,13 @@ export const workoutPlanRoutes = async (app) => {
                     });
                 }
                 const createWorkoutPlan = new CreateWorkoutPlan();
+                const body = request.body;
                 const result = await createWorkoutPlan.execute({
-                    userId: request.body.pendingEmail ? undefined : session.user.id,
-                    pendingEmail: request.body.pendingEmail,
+                    userId: body.pendingEmail ? undefined : session.user.id,
+                    pendingEmail: body.pendingEmail,
                     creatorId: session.user.id,
-                    name: request.body.name,
-                    workoutDays: request.body.workoutDays,
+                    name: body.name,
+                    workoutDays: body.workoutDays,
                 });
                 return reply.status(201).send(result);
             }
@@ -184,10 +185,11 @@ export const workoutPlanRoutes = async (app) => {
                     });
                 }
                 const getWorkoutDay = new GetWorkoutDay();
+                const params = request.params;
                 const result = await getWorkoutDay.execute({
                     userId: session.user.id,
-                    workoutPlanId: request.params.workoutPlanId,
-                    workoutDayId: request.params.workoutDayId,
+                    workoutPlanId: params.workoutPlanId,
+                    workoutDayId: params.workoutDayId,
                 });
                 return reply.status(200).send(result);
             }
@@ -238,10 +240,11 @@ export const workoutPlanRoutes = async (app) => {
                     });
                 }
                 const startWorkoutSession = new StartWorkoutSession();
+                const params = request.params;
                 const result = await startWorkoutSession.execute({
                     userId: session.user.id,
-                    workoutPlanId: request.params.workoutPlanId,
-                    workoutDayId: request.params.workoutDayId,
+                    workoutPlanId: params.workoutPlanId,
+                    workoutDayId: params.workoutDayId,
                 });
                 return reply.status(201).send(result);
             }
@@ -304,12 +307,14 @@ export const workoutPlanRoutes = async (app) => {
                     });
                 }
                 const updateWorkoutSession = new UpdateWorkoutSession();
+                const params = request.params;
+                const body = request.body;
                 const result = await updateWorkoutSession.execute({
                     userId: session.user.id,
-                    workoutPlanId: request.params.workoutPlanId,
-                    workoutDayId: request.params.workoutDayId,
-                    sessionId: request.params.sessionId,
-                    completedAt: request.body.completedAt,
+                    workoutPlanId: params.workoutPlanId,
+                    workoutDayId: params.workoutDayId,
+                    sessionId: params.sessionId,
+                    completedAt: body.completedAt,
                 });
                 return reply.status(200).send(result);
             }
@@ -384,7 +389,8 @@ export const workoutPlanRoutes = async (app) => {
                         code: "FORBIDDEN",
                     });
                 }
-                const { templateId, studentEmail } = request.body;
+                const body = request.body;
+                const { templateId, studentEmail } = body;
                 const templatePlan = await prisma.workoutPlan.findUnique({
                     where: { id: templateId },
                     include: { workoutDays: { include: { exercises: true } } },

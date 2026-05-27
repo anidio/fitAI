@@ -45,8 +45,8 @@ export const statsRoutes = async (app: FastifyInstance) => {
         const getStats = new GetStats();
         const result = await getStats.execute({
           userId: session.user.id,
-          from: request.query.from,
-          to: request.query.to,
+          from: (request.query as any).from,
+          to: (request.query as any).to,
         });
 
         return reply.status(200).send(result);

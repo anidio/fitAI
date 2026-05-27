@@ -59,7 +59,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
         const listWorkoutPlans = new ListWorkoutPlans();
         const result = await listWorkoutPlans.execute({
           userId: session.user.id,
-          active: request.query.active,
+          active: (request.query as any).active,
         });
 
         return reply.status(200).send(result);
@@ -102,12 +102,13 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
           });
         }
         const createWorkoutPlan = new CreateWorkoutPlan();
+        const body = request.body as any;
         const result = await createWorkoutPlan.execute({
-          userId: request.body.pendingEmail ? undefined : session.user.id,
-          pendingEmail: request.body.pendingEmail,
+          userId: body.pendingEmail ? undefined : session.user.id,
+          pendingEmail: body.pendingEmail,
           creatorId: session.user.id,
-          name: request.body.name,
-          workoutDays: request.body.workoutDays,
+          name: body.name,
+          workoutDays: body.workoutDays as any,
         });
         return reply.status(201).send(result);
       } catch (error) {
@@ -158,7 +159,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
         const getWorkoutPlan = new GetWorkoutPlan();
         const result = await getWorkoutPlan.execute({
           userId: session.user.id,
-          workoutPlanId: request.params.workoutPlanId,
+          workoutPlanId: (request.params as any).workoutPlanId,
         });
 
         return reply.status(200).send(result);
@@ -211,10 +212,11 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
         }
 
         const getWorkoutDay = new GetWorkoutDay();
+        const params = request.params as any;
         const result = await getWorkoutDay.execute({
           userId: session.user.id,
-          workoutPlanId: request.params.workoutPlanId,
-          workoutDayId: request.params.workoutDayId,
+          workoutPlanId: params.workoutPlanId,
+          workoutDayId: params.workoutDayId,
         });
 
         return reply.status(200).send(result);
@@ -269,10 +271,11 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
         }
 
         const startWorkoutSession = new StartWorkoutSession();
+        const params = request.params as any;
         const result = await startWorkoutSession.execute({
           userId: session.user.id,
-          workoutPlanId: request.params.workoutPlanId,
-          workoutDayId: request.params.workoutDayId,
+          workoutPlanId: params.workoutPlanId,
+          workoutDayId: params.workoutDayId,
         });
 
         return reply.status(201).send(result);
@@ -341,12 +344,14 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
         }
 
         const updateWorkoutSession = new UpdateWorkoutSession();
+        const params = request.params as any;
+        const body = request.body as any;
         const result = await updateWorkoutSession.execute({
           userId: session.user.id,
-          workoutPlanId: request.params.workoutPlanId,
-          workoutDayId: request.params.workoutDayId,
-          sessionId: request.params.sessionId,
-          completedAt: request.body.completedAt,
+          workoutPlanId: params.workoutPlanId,
+          workoutDayId: params.workoutDayId,
+          sessionId: params.sessionId,
+          completedAt: body.completedAt,
         });
 
         return reply.status(200).send(result);
@@ -425,7 +430,8 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
           });
         }
 
-        const { templateId, studentEmail } = request.body as any;
+        const body = request.body as any;
+        const { templateId, studentEmail } = body;
         const templatePlan = await prisma.workoutPlan.findUnique({
           where: { id: templateId },
           include: { workoutDays: { include: { exercises: true } } },

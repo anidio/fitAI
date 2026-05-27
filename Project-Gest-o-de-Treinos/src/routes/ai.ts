@@ -3,8 +3,7 @@ import { openai } from "@ai-sdk/openai";
 import { xai } from "@ai-sdk/xai";
 import { groq } from "@ai-sdk/groq";
 import {
-  convertToCoreMessages,
-  LanguageModel,
+  convertToModelMessages,
   streamText,
   tool,
 } from "ai";
@@ -69,7 +68,7 @@ export const aiRoutes = async (app: FastifyInstance) => {
       const providerRequested = query.provider || body.provider || "groq";
       // O useChat do Vercel AI SDK envia 'messages' no corpo
       const messages = body.messages || [];
-      const coreMessages = convertToCoreMessages(messages);
+      const coreMessages = await convertToModelMessages(messages);
 
       console.log(`[AI REQUEST] Usuário: ${userId} | Provedor: ${providerRequested} | Mensagens: ${coreMessages.length}`);
 
@@ -102,7 +101,7 @@ export const aiRoutes = async (app: FastifyInstance) => {
           system: SYSTEM_PROMPT,
           messages: coreMessages,
           tools: {
-            getUserTrainData: tool({
+            getUserTrainData: (tool as any)({
               description: "Busca dados de treino.",
               parameters: z.object({}),
               execute: async () => {
@@ -110,15 +109,15 @@ export const aiRoutes = async (app: FastifyInstance) => {
                 return new GetUserTrainData().execute({ userId });
               },
             }),
-            updateUserTrainData: tool({
+            updateUserTrainData: (tool as any)({
               description: "Atualiza dados de treino.",
               parameters: z.object({ weightInGrams: z.number(), heightInCentimeters: z.number(), age: z.number(), bodyFatPercentage: z.number(), injuryNotes: z.string().optional() }),
-              execute: async (params) => {
+              execute: async (params: any) => {
                 console.log(`[TOOL] Executando updateUserTrainData para ${userId}`);
                 return new UpsertUserTrainData().execute({ userId, ...params });
               },
             }),
-            getTodayWorkout: tool({
+            getTodayWorkout: (tool as any)({
               description: "Busca o treino de hoje. Retorna o ID do dia, nome do treino e a lista de exercícios com séries e repetições.",
               parameters: z.object({}),
               execute: async () => {
@@ -177,12 +176,13 @@ export const aiRoutes = async (app: FastifyInstance) => {
                 }
               },
             }),
-            getWorkoutPlanDetails: tool({
+            getWorkoutPlanDetails: (tool as any)({
               description: "Busca os detalhes completos de um plano de treino específico, incluindo todos os dias e exercícios.",
               parameters: z.object({ 
                 workoutPlanId: z.string().describe("O ID do plano de treino") 
               }),
-              execute: async ({ workoutPlanId }) => {
+              execute: async (params: any) => {
+                const { workoutPlanId } = params;
                 console.log(`[TOOL] Executando getWorkoutPlanDetails para ${userId}`);
                 try {
                   const plan = await new GetWorkoutPlan().execute({ userId, workoutPlanId });
@@ -204,7 +204,7 @@ export const aiRoutes = async (app: FastifyInstance) => {
                 }
               },
             }),
-            updateWorkoutDay: tool({
+            updateWorkoutDay: (tool as any)({
               description: "Atualiza um dia de treino específico (troca exercícios, muda nome ou define como descanso).",
               parameters: z.object({ 
                 workoutDayId: z.string().describe("O ID do dia obtido via getTodayWorkout"), 
@@ -218,17 +218,17 @@ export const aiRoutes = async (app: FastifyInstance) => {
                   order: z.number() 
                 })).optional() 
               }),
-              execute: async (params) => {
+              execute: async (params: any) => {
                 console.log(`[TOOL] Executando updateWorkoutDay para ${userId}`);
                 return new UpdateWorkoutDay().execute({ userId, ...params });
               },
             }),
-            getWorkoutPlans: tool({
+            getWorkoutPlans: (tool as any)({
               description: "Lista todos os planos de treino do usuário.",
               parameters: z.object({}),
               execute: async () => new ListWorkoutPlans().execute({ userId }),
             }),
-            createWorkoutPlan: tool({
+            createWorkoutPlan: (tool as any)({
               description: "Cria um novo plano de treino completo de 7 dias.",
               parameters: z.object({
                 name: z.string(),
@@ -241,10 +241,9 @@ export const aiRoutes = async (app: FastifyInstance) => {
                   exercises: z.array(z.object({ order: z.number(), name: z.string(), sets: z.number(), reps: z.number(), restTimeInSeconds: z.number() })),
                 })),
               }),
-              execute: async (input) => new CreateWorkoutPlan().execute({ userId, name: input.name, workoutDays: input.workoutDays as any }),
+              execute: async (input: any) => new CreateWorkoutPlan().execute({ userId, name: input.name, workoutDays: input.workoutDays as any }),
             }),
           },
-          maxSteps: 10,
           onStepFinish: (event) => {
             console.log(`[AI STEP] Passo finalizado. Tool calls: ${event.toolCalls?.length || 0}`);
           },
@@ -258,7 +257,7 @@ export const aiRoutes = async (app: FastifyInstance) => {
         
         const origin = request.headers.origin || "http://localhost:3000";
         
-        const dataStreamResponse = result.toDataStreamResponse({
+        const dataStreamResponse = result.toTextStreamResponse({
           headers: {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",
