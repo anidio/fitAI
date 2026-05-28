@@ -111,7 +111,7 @@ export const gymRoutes = async (app: FastifyInstance) => {
           email,
           password,
           role: "GYM_OWNER",
-        },
+        } as any,
       });
 
       if (!user) {

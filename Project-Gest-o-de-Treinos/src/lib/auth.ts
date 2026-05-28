@@ -14,14 +14,6 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    // ALINHAMENTO: Captura explicitamente os metadados do formulário para salvar no banco
-    async signUp(data: any) {
-      return {
-        ...data,
-        role: (data as any).role || "USER",
-        gymId: (data as any).gymId || null,
-      };
-    },
   },
 
   database: prismaAdapter(prisma, {
@@ -31,6 +23,16 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        before: async (user) => {
+          // Garante que os campos adicionais vindos de metadata ou da requisição sejam injetados
+          return {
+            data: {
+              ...user,
+              role: (user as any).role || "USER",
+              gymId: (user as any).gymId || null,
+            },
+          };
+        },
         after: async (user) => {
           await prisma.workoutPlan.updateMany({
             where: {
@@ -83,7 +85,8 @@ export const auth = betterAuth({
 
   plugins: [openAPI()],
 
-  advanced: {
-    useSameSiteFalse: true
-  }
+  cookie: {
+    secure: true,
+    sameSite: "none",
+  },
 });
