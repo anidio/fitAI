@@ -24,7 +24,8 @@ export const AuthFlow = () => {
   // Efeito para buscar as academias cadastradas no sistema quando for fluxo de cadastro
   useEffect(() => {
     if (isSignUp) {
-      fetch("http://localhost:8081/gyms")
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://fitai-backend-fdgf.onrender.com";
+      fetch(`${apiUrl}/gyms`)
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data)) {
@@ -42,18 +43,20 @@ export const AuthFlow = () => {
 
     try {
       if (isSignUp) {
-        // Validação: Se escolheu Personal ou Dono, obriga a selecionar uma unidade da lista
-        if ((role === "PERSONAL" || role === "GYM_OWNER") && !gymId) {
+        // Validação: Apenas o Personal Trainer é obrigado a selecionar uma unidade da lista
+        if (role === "PERSONAL" && !gymId) {
           throw new Error("Por favor, selecione uma unidade para vincular o seu perfil.");
         }
 
-        // Fluxo de Cadastro Local atualizado para passar o gymId
+        // [CORRIGIDO] Passando campos adicionais dentro de 'metadata' para o TypeScript parar de reclamar
         const { error: signUpError } = await authClient.signUp.email({
           email,
           password,
           name,
-          role, // Enviado no nível correto para o Better Auth identificar
-          gymId: role !== "USER" ? gymId : null, // Vincula no ato se não for aluno comum
+          metadata: {
+            role, 
+            gymId: role === "PERSONAL" ? gymId : null,
+          }
         });
 
         if (signUpError) throw new Error(signUpError.message);
@@ -129,8 +132,8 @@ export const AuthFlow = () => {
               </select>
             </div>
 
-            {/* Renderização Condicional: Exibe as unidades apenas para profissionais (Personal/Dono) */}
-            {(role === "PERSONAL" || role === "GYM_OWNER") && (
+            {/* [CORRIGIDO] Renderização Condicional: Exibe as unidades EXCLUSIVAMENTE para o Personal Trainer */}
+            {role === "PERSONAL" && (
               <div>
                 <Label className="text-xs text-zinc-300">Vincular à sua Unidade</Label>
                 <select
