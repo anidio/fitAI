@@ -54,7 +54,6 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       tags: ["Workout Plan"],
       summary: "Criar plano de treino",
       description: "Cria um novo plano de treino completo para o usuário autenticado.",
-      body: z.any(), // 🌟 BLINDAGEM SWAGGER
     }
   }, async (request, reply) => {
     try {
@@ -162,6 +161,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       tags: ["Workout Plan"],
       summary: "Iniciar sessão de treino",
       description: "Inicia uma nova sessão de treino para o dia selecionado de um plano ativo.",
+      body: z.any(),
     }
   }, async (request, reply) => {
     try {
@@ -172,7 +172,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
         return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
       }
 
-      const startWorkoutSession = startWorkoutSession || new StartWorkoutSession();
+      const startWorkoutSession = new StartWorkoutSession();
       const params = request.params as any;
       const result = await startWorkoutSession.execute({
         userId: session.user.id,
@@ -204,7 +204,6 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       tags: ["Workout Plan"],
       summary: "Atualizar sessão de treino",
       description: "Atualiza o status de conclusão de uma sessão de treino em andamento.",
-      body: z.any(), // 🌟 BLINDAGEM SWAGGER
     }
   }, async (request, reply) => {
     try {
@@ -244,7 +243,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       tags: ["Workout Plan B2B"],
       summary: "Atribuir template a um aluno",
       description: "Permite que um personal atribua um template a um aluno pelo e-mail.",
-      body: z.any(), // 🌟 BLINDAGEM SWAGGER
+      body: z.any(),
     }
   }, async (request, reply) => {
     try {
@@ -299,6 +298,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
             create: templatePlan.workoutDays.map((day: any) => ({
               name: day.name,
               weekDay: day.weekDay,
+              // Garante que o campo Integer receba um número puro e não quebre o Postgres
               estimatedDurationInSeconds: Number(day.estimatedDurationInSeconds || 0),
               coverImageUrl: day.coverImageUrl || null,
               exercises: {
