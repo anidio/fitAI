@@ -152,9 +152,18 @@ app.route({
       });
       // Process authentication request
       const response = await auth.handler(req);
-      // Forward response to client
+
+      // Forward response to client safely handling multiple Set-Cookie headers
       reply.status(response.status);
-      response.headers.forEach((value, key) => reply.header(key, value));
+
+      for (const [key, value] of response.headers.entries()) {
+        if (key.toLowerCase() === "set-cookie") {
+          reply.header("Set-Cookie", response.headers.getSetCookie());
+        } else {
+          reply.header(key, value);
+        }
+      }
+
       reply.send(response.body ? await response.text() : null);
     } catch (error) {
       app.log.error(error);
