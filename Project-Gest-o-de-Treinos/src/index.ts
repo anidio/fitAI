@@ -21,6 +21,7 @@ import { gymRoutes } from "./routes/gym.js";
 
 const app = Fastify({
   logger: true,
+  trustProxy: true,
 });
 
 app.setValidatorCompiler(validatorCompiler);
@@ -135,7 +136,8 @@ app.route({
   async handler(request, reply) {
     try {
       // Construct request URL
-      const url = new URL(request.url, `http://${request.headers.host}`);
+      const protocol = (request.headers["x-forwarded-proto"] as string) || "http";
+      const url = new URL(request.url, `${protocol}://${request.headers.host}`);
 
       // Convert Fastify headers to standard Headers object
       const headers = new Headers();

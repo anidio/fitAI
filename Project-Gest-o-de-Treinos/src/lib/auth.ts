@@ -7,6 +7,7 @@ import { prisma } from "./db.js";
 export const auth = betterAuth({
   trustedOrigins: [
     "http://localhost:3000",
+    "https://fit-ai-bhv2.vercel.app",
     process.env.NEXT_PUBLIC_APP_URL || "",
     process.env.BETTER_AUTH_URL || ""
   ].filter(Boolean),
