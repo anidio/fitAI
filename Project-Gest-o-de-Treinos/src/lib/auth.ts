@@ -81,4 +81,12 @@ export const auth = betterAuth({
   },
 
   plugins: [openAPI()],
+
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+      partitioned: true
+    }
+  }
 });
