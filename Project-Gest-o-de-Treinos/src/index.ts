@@ -153,15 +153,20 @@ app.route({
       // Process authentication request
       const response = await auth.handler(req);
 
-      // Forward response to client safely handling multiple Set-Cookie headers
+      // Define o status code da resposta vindo do Better-Auth
       reply.status(response.status);
 
+      // 🌟 CORREÇÃO CIRÚRGICA: Copia todos os cabeçalhos padrão EXCETO os cookies para não duplicar/sobrescrever no loop
       for (const [key, value] of response.headers.entries()) {
-        if (key.toLowerCase() === "set-cookie") {
-          reply.header("Set-Cookie", response.headers.getSetCookie());
-        } else {
+        if (key.toLowerCase() !== "set-cookie") {
           reply.header(key, value);
         }
+      }
+
+      // 🌟 EXTRAÇÃO ATÔMICA: Coleta TODOS os cookies de uma vez e injeta de forma limpa como Array no Fastify
+      const cookies = response.headers.getSetCookie();
+      if (cookies && cookies.length > 0) {
+        reply.header("Set-Cookie", cookies);
       }
 
       reply.send(response.body ? await response.text() : null);
