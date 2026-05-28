@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Building2, Plus, CheckCircle2, Activity, Users, Trophy, Zap } from "lucide-react";
 import { LogoutButton } from "@/app/profile/_components/logout-button";
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://fitai-backend-fdgf.onrender.com";
+
 export function GestorDashboard() {
   const router = useRouter();
   const [gymName, setGymName] = useState("");
@@ -24,7 +26,7 @@ export function GestorDashboard() {
     setSuccessMessage("");
 
     try {
-      const response = await fetch("http://localhost:8081/gyms", {
+      const response = await fetch(`${apiUrl}/gyms`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

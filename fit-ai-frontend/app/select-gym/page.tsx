@@ -11,7 +11,7 @@ type GymOption = {
   name: string;
 };
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "https://fitai-backend-fdgf.onrender.com";
 
 export default function SelectGymPage() {
   const router = useRouter();

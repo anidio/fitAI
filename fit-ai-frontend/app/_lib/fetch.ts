@@ -9,7 +9,7 @@ const getUrl = (contextUrl: string): string => {
   // Se for no servidor, usa a URL interna do Docker. Se for no cliente, usa a pública.
   const baseUrl = isServer 
     ? (process.env.INTERNAL_API_URL || "http://backend:8081") 
-    : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081");
+    : (process.env.NEXT_PUBLIC_API_URL || "https://fitai-backend-fdgf.onrender.com");
 
   const newUrl = new URL(`${baseUrl}${contextUrl}`);
   return newUrl.toString();

@@ -21,6 +21,8 @@ type StudentWithPlan = {
   workoutPlans: Array<{ id: string; name: string; isActive: boolean }>;
 };
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://fitai-backend-fdgf.onrender.com";
+
 export function PersonalDashboard() {
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
@@ -39,7 +41,7 @@ export function PersonalDashboard() {
 
     const loadTemplates = async () => {
       try {
-        const response = await fetch("http://localhost:8081/workout-plans/templates", {
+        const response = await fetch(`${apiUrl}/workout-plans/templates`, {
           credentials: "include",
         });
 
@@ -81,7 +83,7 @@ export function PersonalDashboard() {
 
     const loadStudents = async () => {
       try {
-        const response = await fetch("http://localhost:8081/gym/students", {
+        const response = await fetch(`${apiUrl}/gym/students`, {
           credentials: "include",
         });
 
@@ -121,7 +123,7 @@ export function PersonalDashboard() {
     const chosenStudent = students.find((s) => s.id === selectedStudentId);
 
     try {
-      const response = await fetch("http://localhost:8081/workout-plans/assign", {
+      const response = await fetch(`${apiUrl}/workout-plans/assign`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
