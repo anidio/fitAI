@@ -129,8 +129,7 @@ export function PersonalDashboard() {
         credentials: "include",
         body: JSON.stringify({ 
           templateId, 
-          userId: selectedStudentId,
-          studentEmail: chosenStudent?.email 
+          studentEmail: chosenStudent?.email // <-- ENVIADO APENAS O QUE O BACKEND SOLICITA
         }),
       });
 

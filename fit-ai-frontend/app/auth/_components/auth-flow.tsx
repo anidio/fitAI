@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/app/_lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,22 @@ export const AuthFlow = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("USER"); // Padrão: Aluno
+  const [gymId, setGymId] = useState(""); // Novo estado para vincular a unidade
+  const [gyms, setGyms] = useState<Array<{ id: string; name: string }>>([]); // Lista de unidades vindas do banco
+
+  // Efeito para buscar as academias cadastradas no sistema quando for fluxo de cadastro
+  useEffect(() => {
+    if (isSignUp) {
+      fetch("http://localhost:8081/gyms")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setGyms(data);
+          }
+        })
+        .catch((err) => console.error("Erro ao carregar lista de academias:", err));
+    }
+  }, [isSignUp]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,17 +42,22 @@ export const AuthFlow = () => {
 
     try {
       if (isSignUp) {
-        // Fluxo de Cadastro Local
+        // Validação: Se escolheu Personal ou Dono, obriga a selecionar uma unidade da lista
+        if ((role === "PERSONAL" || role === "GYM_OWNER") && !gymId) {
+          throw new Error("Por favor, selecione uma unidade para vincular o seu perfil.");
+        }
+
+        // Fluxo de Cadastro Local atualizado para passar o gymId
         const { error: signUpError } = await authClient.signUp.email({
           email,
           password,
           name,
-          role, // Agora enviado no nível correto para o Better Auth identificar
+          role, // Enviado no nível correto para o Better Auth identificar
+          gymId: role !== "USER" ? gymId : null, // Vincula no ato se não for aluno comum
         });
 
         if (signUpError) throw new Error(signUpError.message);
         
-        // Se cadastrou com sucesso, loga o usuário automaticamente
         alert("Cadastro realizado com sucesso! Faça o login.");
         setIsSignUp(false);
       } else {
@@ -91,12 +112,15 @@ export const AuthFlow = () => {
               />
             </div>
 
-            {/* Seletor de Perfil do Usuário para o Futuro */}
+            {/* Seletor de Perfil do Usuário */}
             <div>
               <Label className="text-xs text-zinc-300">Tipo de Perfil</Label>
               <select
                 value={role}
-                onChange={(e) => setRole(e.target.value)}
+                onChange={(e) => {
+                  setRole(e.target.value);
+                  setGymId(""); // Reseta a academia selecionada se mudar o perfil
+                }}
                 className="w-full bg-zinc-800 border border-zinc-700 text-white mt-1 h-9 rounded-lg px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="USER">Aluno / Cliente</option>
@@ -104,6 +128,26 @@ export const AuthFlow = () => {
                 <option value="GYM_OWNER">Dono de Academia</option>
               </select>
             </div>
+
+            {/* Renderização Condicional: Exibe as unidades apenas para profissionais (Personal/Dono) */}
+            {(role === "PERSONAL" || role === "GYM_OWNER") && (
+              <div>
+                <Label className="text-xs text-zinc-300">Vincular à sua Unidade</Label>
+                <select
+                  value={gymId}
+                  onChange={(e) => setGymId(e.target.value)}
+                  required
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white mt-1 h-9 rounded-lg px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Selecione a academia onde atua</option>
+                  {gyms.map((gym) => (
+                    <option key={gym.id} value={gym.id}>
+                      {gym.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </>
         )}
 
@@ -146,6 +190,7 @@ export const AuthFlow = () => {
           onClick={() => {
             setIsSignUp(!isSignUp);
             setError(null);
+            setGymId("");
           }}
           className="text-xs text-zinc-400 hover:text-white underline transition-colors"
         >

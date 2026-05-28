@@ -21,4 +21,4 @@ RUN npm run build
 EXPOSE 8081
 
 # Comando para rodar a aplicação em produção
-CMD ["npm", "start"]
+CMD ["node", "dist/index.js"]
