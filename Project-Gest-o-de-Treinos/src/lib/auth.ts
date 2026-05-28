@@ -14,7 +14,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     // ALINHAMENTO: Captura explicitamente os metadados do formulário para salvar no banco
-    async signUp(data) {
+    async signUp(data: any) {
       return {
         ...data,
         role: (data as any).role || "USER",
