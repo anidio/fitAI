@@ -12,6 +12,12 @@ export const auth = betterAuth({
     process.env.BETTER_AUTH_URL || ""
   ].filter(Boolean),
 
+  // 🌟 COOKIES ESTRUTURADOS PARA CROSS-ORIGIN (VERCEL -> RENDER)
+  cookie: {
+    secure: true,
+    sameSite: "none",
+  },
+
   emailAndPassword: {
     enabled: true,
   },
@@ -20,20 +26,12 @@ export const auth = betterAuth({
     provider: "postgresql",
   }),
 
+  // [CORRIGIDO] DatabaseHooks limpos e seguros para não interceptar tipagem de forma malformada
   databaseHooks: {
     user: {
       create: {
-        before: async (user) => {
-          // Garante que os campos adicionais vindos de metadata ou da requisição sejam injetados
-          return {
-            data: {
-              ...user,
-              role: (user as any).role || "USER",
-              gymId: (user as any).gymId || null,
-            },
-          };
-        },
         after: async (user) => {
+          // Vincula planos de treinos pendentes associados ao e-mail do aluno cadastrado
           await prisma.workoutPlan.updateMany({
             where: {
               pendingEmail: user.email,
@@ -52,7 +50,7 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       role: {
-        type: "string",
+        type: "string", // Mantém o tipo primitivo para o Better-Auth compreender o payload
         required: true,
         defaultValue: "USER",
       },
@@ -84,9 +82,4 @@ export const auth = betterAuth({
   },
 
   plugins: [openAPI()],
-
-  cookie: {
-    secure: true,
-    sameSite: "none",
-  },
 });

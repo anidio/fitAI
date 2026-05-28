@@ -48,16 +48,15 @@ export const AuthFlow = () => {
           throw new Error("Por favor, selecione uma unidade para vincular o seu perfil.");
         }
 
-        // [CORRIGIDO] Passando campos adicionais dentro de 'metadata' para o TypeScript parar de reclamar
+        // [CORRIGIDO] Passando os campos adicionais diretamente e silenciando a tipagem estrita com 'as any'
+        // Isso impede o erro 422 de dados malformados, enviando os campos direto para os databaseHooks do backend
         const { error: signUpError } = await authClient.signUp.email({
           email,
           password,
           name,
-          metadata: {
-            role, 
-            gymId: role === "PERSONAL" ? gymId : null,
-          }
-        });
+          role,
+          gymId: role === "PERSONAL" ? gymId : null,
+        } as any);
 
         if (signUpError) throw new Error(signUpError.message);
         
@@ -132,7 +131,7 @@ export const AuthFlow = () => {
               </select>
             </div>
 
-            {/* [CORRIGIDO] Renderização Condicional: Exibe as unidades EXCLUSIVAMENTE para o Personal Trainer */}
+            {/* Renderização Condicional: Exibe as unidades EXCLUSIVAMENTE para o Personal Trainer */}
             {role === "PERSONAL" && (
               <div>
                 <Label className="text-xs text-zinc-300">Vincular à sua Unidade</Label>
