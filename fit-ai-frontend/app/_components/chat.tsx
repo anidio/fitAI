@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useChat } from "@ai-sdk/react";
+import { useChat, type UIMessage } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { useQueryStates, parseAsBoolean, parseAsString } from "nuqs";
 import { Sparkles, X, ArrowUp } from "lucide-react";
 import { Streamdown } from "streamdown";
@@ -20,6 +21,14 @@ const SUGGESTED_MESSAGES = [
   "Monte meu plano de treino",
   "Estou com dor hoje, pode ajustar meu treino?",
 ];
+
+const getMessageContent = (message: UIMessage) => {
+  return (
+    message.parts
+      ?.map((part) => (part.type === "text" ? part.text : ""))
+      .join("") || ""
+  );
+};
 
 const chatFormSchema = z.object({
   message: z.string().min(1),
@@ -48,17 +57,15 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
 
   const { 
     messages, 
-    input, 
-    handleInputChange, 
-    handleSubmit, 
-    append, 
+    sendMessage, 
     status, 
     error 
   } = useChat({
-    // A chave força o React a destruir e recriar o chat ao trocar de IA
-    key: `ai-${chatParams.ai_provider}`, 
-    api: `${baseUrl}/ai?provider=${chatParams.ai_provider}`,
-    credentials: "include",
+    id: `ai-${chatParams.ai_provider}`, 
+    transport: new DefaultChatTransport({
+      api: `${baseUrl}/ai?provider=${chatParams.ai_provider}`,
+      credentials: "include",
+    }),
   });
 
   useEffect(() => {
@@ -77,9 +84,9 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
   useEffect(() => {
     if (embedded && initialMessage && !initialMessageSentRef.current) {
       initialMessageSentRef.current = true;
-      append({ role: "user", content: initialMessage });
+      sendMessage({ text: initialMessage });
     }
-  }, [embedded, initialMessage, append]);
+  }, [embedded, initialMessage, sendMessage]);
 
   useEffect(() => {
     if (
@@ -89,14 +96,14 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
       !initialMessageSentRef.current
     ) {
       initialMessageSentRef.current = true;
-      append({ role: "user", content: chatParams.chat_initial_message });
+      sendMessage({ text: chatParams.chat_initial_message });
       setChatParams({ chat_initial_message: null });
     }
   }, [
     embedded,
     chatParams.chat_open,
     chatParams.chat_initial_message,
-    append,
+    sendMessage,
     setChatParams,
   ]);
 
@@ -120,12 +127,12 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
   };
 
   const onSubmit = (values: ChatFormValues) => {
-    append({ role: "user", content: values.message });
+    sendMessage({ text: values.message });
     form.reset();
   };
 
   const handleSuggestion = (text: string) => {
-    append({ role: "user", content: text });
+    sendMessage({ text });
   };
 
   const isStreaming = status === "streaming";
@@ -207,11 +214,11 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
                   }
                   className="font-heading text-sm leading-relaxed text-foreground"
                 >
-                  {message.content}
+                  {getMessageContent(message)}
                 </Streamdown>
               ) : (
                 <p className="font-heading text-sm leading-relaxed text-primary-foreground">
-                  {message.content}
+                  {getMessageContent(message)}
                 </p>
               )}
             </div>

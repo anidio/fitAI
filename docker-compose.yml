@@ -51,7 +51,7 @@ services:
         condition: service_healthy
     stdin_open: true
     tty: true
-    command: sh -c "npm install --legacy-peer-deps --ignore-engines && npx prisma generate && npx prisma db push && npx tsx src/index.ts"
+    command: sh -c "npm install --legacy-peer-deps --ignore-engines --ignore-scripts && npx prisma generate && npx prisma db push && npx tsx src/index.ts"
     # restart: on-failure
     networks:
       - fitai-network

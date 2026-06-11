@@ -33,12 +33,12 @@ export const meRoutes = async (app: FastifyInstance) => {
       const userRole = (session.user as any).role;
       const gymId = (session.user as any).gymId;
 
-      // Regra: Aluno (USER) que não tem gymId precisa selecionar academia
-      const requiresGymSelection = userRole === "USER" && !gymId;
+      // Regra: Aluno (USER) ou Personal (PERSONAL) que não tem gymId precisa selecionar academia
+      const requiresGymSelection = (userRole === "USER" || userRole === "PERSONAL") && !gymId;
 
       // Busca treinos pendentes criados pelo Personal antes do cadastro
       const pendingPlans = await prisma.workoutPlan.findMany({
-        where: { pendingEmail: userEmail },
+        where: { pendingEmail: userEmail.toLowerCase().trim() },
       });
 
       if (pendingPlans.length > 0) {
@@ -184,7 +184,7 @@ export const meRoutes = async (app: FastifyInstance) => {
       }
 
       // Busca os planos de treino com o campo pendingEmail igual ao e-mail do usuário
-      const pending = await prisma.workoutPlan.findMany({ where: { pendingEmail: session.user.email } });
+      const pending = await prisma.workoutPlan.findMany({ where: { pendingEmail: session.user.email.toLowerCase().trim() } });
 
       let applied = 0;
       for (const plan of pending) {

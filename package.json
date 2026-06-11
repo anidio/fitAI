@@ -14,7 +14,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "docker:dev:backend": "docker compose -f docker-compose.backend.yml up --build -d",
     "docker:dev:frontend": "docker compose -f docker-compose.frontend.yml up --build",
-    "docker:dev": "npm run docker:dev:backend && npm run docker:dev:frontend"
+    "docker:dev:split": "npm run docker:dev:backend && npm run docker:dev:frontend",
+    "docker:dev": "docker compose up --build",
+    "docker:down": "docker compose down -v"
   },
   "engines": {
     "node": ">=20.x"
@@ -52,6 +54,9 @@
     "dotenv": "^17.3.1",
     "fastify": "^5.7.4",
     "fastify-type-provider-zod": "^6.1.0",
+    "zod": "^3.23.8"
+  },
+  "overrides": {
     "zod": "^3.23.8"
   }
 }

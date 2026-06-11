@@ -113,7 +113,7 @@ export default function SelectGymPage() {
 
         <h2 className="text-xl font-bold text-white mb-2">Confirme sua Academia</h2>
         <p className="text-xs text-zinc-400 mb-6">
-          Selecione abaixo a unidade corporativa em que você se matriculou para liberar seu plano de treino.
+          Selecione abaixo a unidade corporativa vinculada para liberar o acesso ao aplicativo.
         </p>
 
         <form onSubmit={handleConfirmGym} className="flex flex-col gap-4 text-left">

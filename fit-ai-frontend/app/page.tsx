@@ -27,16 +27,14 @@ export default async function Home() {
   const userGymId = (session.data.user as any).gymId;
 
   // 2. REDIRECIONAMENTO POR PERFIL (B2B):
+  // Se for PERSONAL ou USER e não tiver academia vinculada, redireciona para a seleção
+  if ((userRole === "USER" || userRole === "PERSONAL") && !userGymId) {
+    redirect("/select-gym");
+  }
+
   // Se for Personal Trainer ou Gestor, renderiza o painel client-only apropriado
   if (userRole === "PERSONAL" || userRole === "GYM_OWNER") {
     return <RoleDashboard userRole={userRole} userGymId={userGymId} />;
-  }
-
-  // 3. FLUXO DO ALUNO (USER):
-  
-  // REGRA AJUSTADA (Ajuste 4 e 5): O aluno loga -> Obrigatoriamente seleciona a academia primeiro.
-  if (!userGymId) {
-    redirect("/select-gym");
   }
 
   const today = dayjs();

@@ -41,11 +41,11 @@ export const HomeDataSchema = z.object({
         isRest: z.boolean(),
         weekDay: z.enum(Object.keys(WeekDay)),
         estimatedDurationInSeconds: z.number(),
-        coverImageUrl: z.string().url().optional(),
+        coverImageUrl: z.string().url().nullable().optional(),
         exercisesCount: z.number(),
-    }),
+    }).nullable().optional(),
     workoutStreak: z.number(),
-    consistencyByDay: z.record(z.string().datetime(), z.object({
+    consistencyByDay: z.record(z.string(), z.object({
         workoutDayCompleted: z.boolean(),
         workoutDayStarted: z.boolean(),
     })),

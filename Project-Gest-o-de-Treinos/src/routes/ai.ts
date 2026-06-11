@@ -1,9 +1,11 @@
+import { Readable } from "node:stream";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { xai } from "@ai-sdk/xai";
 import { groq } from "@ai-sdk/groq";
 import {
   convertToModelMessages,
+  stepCountIs,
   streamText,
   tool,
 } from "ai";
@@ -100,6 +102,7 @@ export const aiRoutes = async (app: FastifyInstance) => {
           model: model as any,
           system: SYSTEM_PROMPT,
           messages: coreMessages,
+          stopWhen: stepCountIs(5),
           tools: {
             getUserTrainData: (tool as any)({
               description: "Busca dados de treino.",
@@ -110,8 +113,14 @@ export const aiRoutes = async (app: FastifyInstance) => {
               },
             }),
             updateUserTrainData: (tool as any)({
-              description: "Atualiza dados de treino.",
-              parameters: z.object({ weightInGrams: z.number(), heightInCentimeters: z.number(), age: z.number(), bodyFatPercentage: z.number(), injuryNotes: z.string().optional() }),
+              description: "Atualiza os dados de treino do usuário (peso em gramas, altura em centímetros, idade, percentual de gordura e notas de lesão). Todos os parâmetros são opcionais, envie apenas o que for alterado.",
+              parameters: z.object({
+                weightInGrams: z.number().optional(),
+                heightInCentimeters: z.number().optional(),
+                age: z.number().optional(),
+                bodyFatPercentage: z.number().optional(),
+                injuryNotes: z.string().optional(),
+              }),
               execute: async (params: any) => {
                 console.log(`[TOOL] Executando updateUserTrainData para ${userId}`);
                 return new UpsertUserTrainData().execute({ userId, ...params });
@@ -257,7 +266,8 @@ export const aiRoutes = async (app: FastifyInstance) => {
         
         const origin = request.headers.origin || "http://localhost:3000";
         
-        const dataStreamResponse = result.toTextStreamResponse({
+        const dataStreamResponse = result.toUIMessageStreamResponse({
+          originalMessages: messages,
           headers: {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",
@@ -272,7 +282,12 @@ export const aiRoutes = async (app: FastifyInstance) => {
 
         reportDebug("stream-ready", { status: dataStreamResponse.status });
 
-        return reply.status(dataStreamResponse.status).send(dataStreamResponse.body);
+        if (!dataStreamResponse.body) {
+          return reply.status(500).send({ error: "Failed to generate stream body" });
+        }
+
+        const nodeStream = Readable.fromWeb(dataStreamResponse.body as any);
+        return reply.status(dataStreamResponse.status).send(nodeStream);
 
       } catch (error: any) {
         console.error(`[AI ERROR]`, error);

@@ -2,19 +2,19 @@ import { prisma } from "../lib/db.js";
 
 interface InputDto {
   userId: string;
-  weightInGrams: number;
-  heightInCentimeters: number;
-  age: number;
-  bodyFatPercentage: number;
+  weightInGrams?: number;
+  heightInCentimeters?: number;
+  age?: number;
+  bodyFatPercentage?: number;
   injuryNotes?: string;
 }
 
 interface OutputDto {
   userId: string;
-  weightInGrams: number;
-  heightInCentimeters: number;
-  age: number;
-  bodyFatPercentage: number;
+  weightInGrams?: number;
+  heightInCentimeters?: number;
+  age?: number;
+  bodyFatPercentage?: number;
   injuryNotes?: string;
 }
 
@@ -33,10 +33,10 @@ export class UpsertUserTrainData {
 
     return {
       userId: user.id,
-      weightInGrams: user.weightInGrams!,
-      heightInCentimeters: user.heightInCentimeters!,
-      age: user.age!,
-      bodyFatPercentage: user.bodyFatPercentage!,
+      weightInGrams: user.weightInGrams ?? undefined,
+      heightInCentimeters: user.heightInCentimeters ?? undefined,
+      age: user.age ?? undefined,
+      bodyFatPercentage: user.bodyFatPercentage ?? undefined,
       injuryNotes: user.injuryNotes ?? undefined,
     };
   }

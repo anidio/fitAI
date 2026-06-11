@@ -49,7 +49,7 @@ export class CreateWorkoutPlan {
 
     if (!finalUserId && dto.pendingEmail) {
       const user = await prisma.user.findUnique({
-        where: { email: dto.pendingEmail },
+        where: { email: dto.pendingEmail?.toLowerCase().trim() },
       });
       if (user) {
         finalUserId = user.id;
@@ -68,7 +68,7 @@ export class CreateWorkoutPlan {
     const existingPendingPlan = (!finalUserId && dto.pendingEmail)
       ? await prisma.workoutPlan.findFirst({
           where: {
-            pendingEmail: dto.pendingEmail,
+            pendingEmail: dto.pendingEmail?.toLowerCase().trim(),
             isActive: true,
           },
         })
@@ -94,7 +94,7 @@ export class CreateWorkoutPlan {
           id: crypto.randomUUID(),
           name: dto.name,
           userId: finalUserId,
-          pendingEmail: finalUserId ? null : dto.pendingEmail,
+          pendingEmail: finalUserId ? null : dto.pendingEmail?.toLowerCase().trim(),
           creatorId: dto.creatorId,
           isActive: true,
           workoutDays: {

@@ -46,9 +46,6 @@ export class GetHomeData {
         }
         const todayWeekDay = WEEKDAY_MAP[currentDate.day()];
         const todayWorkoutDay = workoutPlan.workoutDays.find((day) => day.weekDay === todayWeekDay);
-        if (!todayWorkoutDay) {
-            throw new NotFoundError("No workout day found for today");
-        }
         const weekStart = currentDate.day(0).startOf("day");
         const weekEnd = currentDate.day(6).endOf("day");
         const weekSessions = await prisma.workoutSession.findMany({
@@ -74,16 +71,18 @@ export class GetHomeData {
         const workoutStreak = await this.calculateStreak(workoutPlan.id, workoutPlan.workoutDays, currentDate);
         return {
             activeWorkoutPlanId: workoutPlan.id,
-            todayWorkoutDay: {
-                workoutPlanId: workoutPlan.id,
-                id: todayWorkoutDay.id,
-                name: todayWorkoutDay.name,
-                isRest: todayWorkoutDay.isRest,
-                weekDay: todayWorkoutDay.weekDay,
-                estimatedDurationInSeconds: todayWorkoutDay.estimatedDurationInSeconds,
-                coverImageUrl: todayWorkoutDay.coverImageUrl ?? undefined,
-                exercisesCount: todayWorkoutDay.exercises.length,
-            },
+            todayWorkoutDay: todayWorkoutDay
+                ? {
+                    workoutPlanId: workoutPlan.id,
+                    id: todayWorkoutDay.id,
+                    name: todayWorkoutDay.name,
+                    isRest: todayWorkoutDay.isRest,
+                    weekDay: todayWorkoutDay.weekDay,
+                    estimatedDurationInSeconds: todayWorkoutDay.estimatedDurationInSeconds,
+                    coverImageUrl: todayWorkoutDay.coverImageUrl ?? undefined,
+                    exercisesCount: todayWorkoutDay.exercises.length,
+                }
+                : undefined,
             workoutStreak,
             consistencyByDay,
         };

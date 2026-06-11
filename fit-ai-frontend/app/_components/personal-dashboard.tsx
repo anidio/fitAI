@@ -83,7 +83,7 @@ export function PersonalDashboard() {
 
     const loadStudents = async () => {
       try {
-        const response = await fetch(`${apiUrl}/gym/students`, {
+        const response = await fetch(`${apiUrl}/gyms/students`, {
           credentials: "include",
         });
 

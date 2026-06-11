@@ -161,7 +161,6 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       tags: ["Workout Plan"],
       summary: "Iniciar sessão de treino",
       description: "Inicia uma nova sessão de treino para o dia selecionado de um plano ativo.",
-      body: z.any(),
     }
   }, async (request, reply) => {
     try {
@@ -243,7 +242,6 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
       tags: ["Workout Plan B2B"],
       summary: "Atribuir template a um aluno",
       description: "Permite que um personal atribua um template a um aluno pelo e-mail.",
-      body: z.any(),
     }
   }, async (request, reply) => {
     try {
@@ -271,7 +269,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
 
       if (!templatePlan) return reply.status(404).send({ error: "Template não encontrado", code: "NOT_FOUND_ERROR" });
 
-      const student = await prisma.user.findUnique({ where: { email: studentEmail } });
+      const student = await prisma.user.findUnique({ where: { email: studentEmail.toLowerCase().trim() } });
 
       if (student) {
         await prisma.workoutPlan.updateMany({
@@ -280,7 +278,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
         });
       } else {
         await prisma.workoutPlan.updateMany({
-          where: { pendingEmail: studentEmail, isActive: true },
+          where: { pendingEmail: studentEmail.toLowerCase().trim(), isActive: true },
           data: { isActive: false },
         });
       }
@@ -291,7 +289,7 @@ export const workoutPlanRoutes = async (app: FastifyInstance) => {
           description: templatePlan.description,
           isTemplate: false,
           userId: student?.id,
-          pendingEmail: student ? null : studentEmail,
+          pendingEmail: student ? null : studentEmail.toLowerCase().trim(),
           creatorId: session.user.id,
           isActive: true,
           workoutDays: {

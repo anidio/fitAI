@@ -54,6 +54,13 @@ export const gymRoutes = async (app: FastifyInstance) => {
           name: true,
           email: true,
           image: true,
+          workoutPlans: {
+            select: {
+              id: true,
+              name: true,
+              isActive: true,
+            },
+          },
         },
         orderBy: {
           name: "asc",
@@ -142,6 +149,9 @@ export const gymRoutes = async (app: FastifyInstance) => {
   /**
    * REQUISITO 2: Dono de academia cadastra uma nova unidade física (BLINDADO)
    */
+  /**
+   * REQUISITO 2: Dono de academia cadastra uma nova unidade física (BLINDADO)
+   */
   app.post("/", {
     schema: {
       tags: ["Academia / Gestão"],
@@ -171,46 +181,186 @@ export const gymRoutes = async (app: FastifyInstance) => {
         return reply.status(403).send({
           error: "Apenas donos de academia podem registrar unidades corporativas",
           code: "FORBIDDEN",
-          });
-        }
-
-        // 2. VALIDAÇÃO MANUAL: Validamos o body de forma isolada
-        const body = request.body as any;
-        if (!body || !body.name || body.name.trim().length < 3) {
-          return reply.status(400).send({ 
-            error: "Nome da unidade muito curto ou inválido (mínimo 3 caracteres).", 
-            code: "BAD_REQUEST" 
-          });
-        }
-
-        const { name } = body;
-
-        // 3. Cria a unidade no banco
-        const newGym = await prisma.gym.create({
-          data: {
-            name,
-          },
-        });
-
-        // 4. Vincula o Dono à academia recém-criada
-        await prisma.user.update({
-          where: { id: session.user.id },
-          data: { gymId: newGym.id },
-        });
-
-        return reply.status(201).send({ 
-          success: true, 
-          gym: { id: newGym.id, name: newGym.name } 
-        });
-
-      } catch (error) {
-        app.log.error(error);
-        return reply.status(500).send({ 
-          error: "Erro interno do servidor ao registrar unidade", 
-          code: "INTERNAL_SERVER_ERROR" 
         });
       }
-    });
+
+      // 2. VALIDAÇÃO MANUAL: Validamos o body de forma isolada
+      const body = request.body as any;
+      if (!body || !body.name || body.name.trim().length < 3) {
+        return reply.status(400).send({ 
+          error: "Nome da unidade muito curto ou inválido (mínimo 3 caracteres).", 
+          code: "BAD_REQUEST" 
+        });
+      }
+
+      const { name } = body;
+
+      // 3. Cria a unidade no banco e vincula o ownerId
+      const newGym = await prisma.gym.create({
+        data: {
+          name,
+          ownerId: session.user.id,
+        },
+      });
+
+      return reply.status(201).send({ 
+        success: true, 
+        gym: { id: newGym.id, name: newGym.name } 
+      });
+
+    } catch (error) {
+      app.log.error(error);
+      return reply.status(500).send({ 
+        error: "Erro interno do servidor ao registrar unidade", 
+        code: "INTERNAL_SERVER_ERROR" 
+      });
+    }
+  });
+
+  /**
+   * REQUISITO NOVO: Listar academias do dono logado
+   */
+  app.get("/owner", {
+    schema: {
+      tags: ["Academia / Gestão"],
+      summary: "Listar academias pertencentes ao dono logado",
+      description: "Retorna a lista de todas as academias registradas pelo dono autenticado.",
+    }
+  }, async (request, reply) => {
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(request.headers),
+      });
+
+      if (!session || !session.user) {
+        return reply.status(401).send({ error: "Não autorizado", code: "UNAUTHORIZED" });
+      }
+
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id }
+      });
+
+      if (!dbUser || dbUser.role !== "GYM_OWNER") {
+        return reply.status(403).send({ error: "Não autorizado", code: "FORBIDDEN" });
+      }
+
+      const gyms = await prisma.gym.findMany({
+        where: { ownerId: session.user.id },
+        select: { id: true, name: true, createdAt: true },
+        orderBy: { name: "asc" }
+      });
+
+      return reply.status(200).send(gyms);
+    } catch (error) {
+      app.log.error(error);
+      return reply.status(500).send({ error: "Erro ao buscar academias do proprietário", code: "INTERNAL_SERVER_ERROR" });
+    }
+  });
+
+  /**
+   * REQUISITO NOVO: Editar nome da academia (Apenas Dono)
+   */
+  app.put("/:id", {
+    schema: {
+      tags: ["Academia / Gestão"],
+      summary: "Editar nome de uma academia",
+      description: "Permite ao dono de uma academia editar o nome da unidade correspondente.",
+      params: z.object({
+        id: z.string(),
+      }),
+    }
+  }, async (request, reply) => {
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(request.headers),
+      });
+
+      if (!session || !session.user) {
+        return reply.status(401).send({ error: "Não autorizado", code: "UNAUTHORIZED" });
+      }
+
+      const { id } = request.params as any;
+      const body = request.body as any;
+
+      if (!body || !body.name || body.name.trim().length < 3) {
+        return reply.status(400).send({ 
+          error: "Nome da unidade inválido (mínimo 3 caracteres).", 
+          code: "BAD_REQUEST" 
+        });
+      }
+
+      // Verifica propriedade
+      const gym = await prisma.gym.findUnique({
+        where: { id },
+      });
+
+      if (!gym) {
+        return reply.status(404).send({ error: "Academia não encontrada", code: "NOT_FOUND" });
+      }
+
+      if (gym.ownerId !== session.user.id) {
+        return reply.status(403).send({ error: "Você não tem permissão para editar esta academia", code: "FORBIDDEN" });
+      }
+
+      const updatedGym = await prisma.gym.update({
+        where: { id },
+        data: { name: body.name.trim() },
+      });
+
+      return reply.status(200).send({ success: true, gym: updatedGym });
+    } catch (error) {
+      app.log.error(error);
+      return reply.status(500).send({ error: "Erro ao atualizar nome da academia", code: "INTERNAL_SERVER_ERROR" });
+    }
+  });
+
+  /**
+   * REQUISITO NOVO: Excluir uma academia (Apenas Dono)
+   */
+  app.delete("/:id", {
+    schema: {
+      tags: ["Academia / Gestão"],
+      summary: "Excluir uma academia",
+      description: "Permite ao dono de uma academia excluir a unidade correspondente.",
+      params: z.object({
+        id: z.string(),
+      }),
+    }
+  }, async (request, reply) => {
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(request.headers),
+      });
+
+      if (!session || !session.user) {
+        return reply.status(401).send({ error: "Não autorizado", code: "UNAUTHORIZED" });
+      }
+
+      const { id } = request.params as any;
+
+      // Verifica propriedade
+      const gym = await prisma.gym.findUnique({
+        where: { id },
+      });
+
+      if (!gym) {
+        return reply.status(404).send({ error: "Academia não encontrada", code: "NOT_FOUND" });
+      }
+
+      if (gym.ownerId !== session.user.id) {
+        return reply.status(403).send({ error: "Você não tem permissão para excluir esta academia", code: "FORBIDDEN" });
+      }
+
+      await prisma.gym.delete({
+        where: { id },
+      });
+
+      return reply.status(200).send({ success: true, message: "Academia excluída com sucesso" });
+    } catch (error) {
+      app.log.error(error);
+      return reply.status(500).send({ error: "Erro ao excluir academia", code: "INTERNAL_SERVER_ERROR" });
+    }
+  });
 
   /**
    * REQUISITO 3: Listar todas as academias ativas no sistema (BLINDADO)

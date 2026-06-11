@@ -34,7 +34,7 @@ export const auth = betterAuth({
           // Vincula planos de treinos pendentes associados ao e-mail do aluno cadastrado
           await prisma.workoutPlan.updateMany({
             where: {
-              pendingEmail: user.email,
+              pendingEmail: user.email.toLowerCase().trim(),
               userId: null,
             },
             data: {

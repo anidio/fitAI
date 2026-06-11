@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   images: {
     remotePatterns: [
       {
@@ -23,6 +23,6 @@ const nextConfig: NextConfig = {
     // Evita que avisos do linter matem o build na Vercel
     ignoreDuringBuilds: true,
   },
-};
+} as NextConfig;
 
 export default nextConfig;

@@ -26,6 +26,8 @@ model Gym {
   updatedAt DateTime @updatedAt @db.Timestamptz()
   
   // Relacionamentos
+  ownerId   String?
+  owner     User?         @relation("OwnedGyms", fields: [ownerId], references: [id], onDelete: Cascade)
   users        User[]        // Uma academia abriga múltiplos alunos, personais e gestores
   workoutPlans WorkoutPlan[] // Treinos vinculados ou disponibilizados como template nesta unidade
 }
@@ -43,6 +45,7 @@ model User {
   role          UserRole  @default(USER)
   gymId         String?
   gym           Gym?      @relation(fields: [gymId], references: [id], onDelete: SetNull)
+  ownedGyms     Gym[]     @relation("OwnedGyms")
 
   // Dados Físicos (Coletados pela IA no chat e exibidos no perfil)
   weightInGrams       Int?
