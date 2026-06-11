@@ -5,6 +5,7 @@ import { openAPI } from "better-auth/plugins";
 import { prisma } from "./db.js";
 
 export const auth = betterAuth({
+  baseURL: process.env.BETTER_AUTH_URL || "https://fitai-backend-fdgf.onrender.com",
   trustedOrigins: [
     "http://localhost:3000",
     "https://fit-ai-bhv2.vercel.app",
@@ -15,6 +16,7 @@ export const auth = betterAuth({
   cookie: {
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    domain: process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
   },
 
   emailAndPassword: {

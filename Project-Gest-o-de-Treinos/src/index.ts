@@ -61,7 +61,14 @@ app.withTypeProvider<ZodTypeProvider>().route({
 });
 
 await app.register(fastifyCors, {
-  origin: ["https://fit-ai-bhv2.vercel.app", "http://localhost:3000"],
+  origin: (origin, cb) => {
+    const allowedOrigins = ["https://fit-ai-bhv2.vercel.app", "http://localhost:3000", process.env.NEXT_PUBLIC_APP_URL || ""];
+    if (!origin || allowedOrigins.includes(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Not allowed by CORS"), false);
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-AI-Provider"],
@@ -91,11 +98,13 @@ app.withTypeProvider<ZodTypeProvider>().route({
 
 // Rota Curinga de Autenticação
 app.route({
-  method: ["GET", "POST", "OPTIONS"],
+  method: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   url: "/api/auth/*",
   async handler(request, reply) {
     const origin = request.headers.origin;
-    if (origin && (origin === "http://localhost:3000" || origin === "https://fit-ai-bhv2.vercel.app")) {
+    const allowedOrigins = ["https://fit-ai-bhv2.vercel.app", "http://localhost:3000", process.env.NEXT_PUBLIC_APP_URL || ""];
+    
+    if (origin && allowedOrigins.includes(origin)) {
       reply.header("Access-Control-Allow-Origin", origin);
       reply.header("Access-Control-Allow-Credentials", "true");
       reply.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
@@ -111,13 +120,31 @@ app.route({
 
     const headers = new Headers();
     Object.entries(request.headers).forEach(([key, value]) => {
-      if (value) headers.append(key, value.toString());
+      if (value && key !== "host") {
+        if (Array.isArray(value)) {
+          value.forEach(v => headers.append(key, v));
+        } else {
+          headers.set(key, value.toString());
+        }
+      }
     });
+
+    // [CORRIGIDO] Garante que o body está correto para better-auth
+    let reqBody: BodyInit | null = null;
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      if (typeof request.body === "object" && request.body !== null) {
+        // Se Fastify já parseou o body, stringifica de volta para JSON
+        reqBody = JSON.stringify(request.body);
+        headers.set("Content-Type", "application/json");
+      } else {
+        reqBody = request.body as BodyInit;
+      }
+    }
 
     const req = new Request(url.toString(), {
       method: request.method,
       headers,
-      body: request.method !== "GET" ? JSON.stringify(request.body) : null,
+      body: reqBody,
     });
 
     const response = await auth.handler(req);
@@ -129,12 +156,30 @@ app.route({
       }
     }
 
+    // [CORRIGIDO] Para Render/Vercel: adiciona cada cookie individualmente
     const cookies = response.headers.getSetCookie();
     if (cookies && cookies.length > 0) {
-      reply.header("Set-Cookie", cookies);
+      for (const cookie of cookies) {
+        // Ajusta o cookie para produção
+        let adjustedCookie = cookie;
+        if (process.env.NODE_ENV === "production") {
+          // Garante SameSite=None; Secure para Vercel/Render
+          if (!adjustedCookie.includes("SameSite")) {
+            adjustedCookie += "; SameSite=None; Secure";
+          } else if (adjustedCookie.includes("SameSite=Lax") || adjustedCookie.includes("SameSite=Strict")) {
+            adjustedCookie = adjustedCookie.replace(/SameSite=(Lax|Strict)/, "SameSite=None");
+            if (!adjustedCookie.includes("Secure")) {
+              adjustedCookie += "; Secure";
+            }
+          }
+        }
+        reply.header("Set-Cookie", adjustedCookie);
+      }
     }
 
-    reply.send(response.body ? await response.text() : null);
+    // Lê o corpo da resposta do better-auth
+    const responseBody = await response.text();
+    reply.send(responseBody);
   },
 });
 
