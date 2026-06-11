@@ -81,7 +81,7 @@ export class GetHomeData {
       };
     }
 
-    const currentDate = dayjs.utc(dto.date);
+    const currentDate = dayjs(dto.date); // Não faz o subtract só no front
 
     if (!workoutPlan) {
       throw new NotFoundError("Active workout plan not found");
@@ -119,7 +119,7 @@ export class GetHomeData {
 
       const daySessions = weekSessions.filter(
         (s: { startedAt: Date | string; completedAt: Date | null }) =>
-          dayjs.utc(s.startedAt).format("YYYY-MM-DD") === dateKey,
+          dayjs(s.startedAt).subtract(4, "hour").format("YYYY-MM-DD") === dateKey,
       );
 
       const workoutDayStarted = daySessions.length > 0;
@@ -179,7 +179,7 @@ export class GetHomeData {
 
     const completedDates = new Set(
       allSessions.map((s: { startedAt: Date | string }) =>
-        dayjs.utc(s.startedAt).format("YYYY-MM-DD"),
+        dayjs(s.startedAt).subtract(4, "hour").format("YYYY-MM-DD"),
       ),
     );
 

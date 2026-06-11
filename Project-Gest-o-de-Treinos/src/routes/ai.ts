@@ -33,21 +33,21 @@ import { GetUserTrainData } from "../usecases/get-user-train-data.js";
 import { GetWorkoutDay } from "../usecases/get-workout-day.js";
 import { GetWorkoutPlan } from "../usecases/get-workout-plan.js";
 import { ListWorkoutPlans } from "../usecases/list-workout-plans.js";
-import { UpdateWorkoutDay } from "../usecases/update-workout-day.js";
 import { UpsertUserTrainData } from "../usecases/upsert-user-train-data.js";
 
 const SYSTEM_PROMPT = `Você é um personal trainer virtual especialista em musculação e bem-estar.
 
 ## Sua Missão
-Ajudar o usuário a ter o melhor treino possível, ajustando-o às suas condições físicas atuais (dores, cansaço, tempo disponível).
+Ajudar o usuário a ter o melhor treino possível, dando sugestões claras e úteis.
 
 ## Regras de Ouro (Siga rigorosamente)
-1. **NUNCA peça os exercícios ao usuário**. Você tem a ferramenta \`getTodayWorkout\` para isso.
-2. **SEMPRE use ferramentas primeiro**: Se o usuário falar de dor, cansaço ou pedir ajuste, você DEVE chamar a ferramenta \`getTodayWorkout\` antes de dar qualquer resposta textual.
-3. **Análise de Dados**: Ao receber o resultado de \`getTodayWorkout\`, analise a lista de exercícios. Se o usuário relatou dor, identifique quais exercícios podem ser prejudiciais e sugira a troca.
-4. **Falta de Treino hoje**: Se \`getTodayWorkout\` indicar que não há treino para hoje, use \`getWorkoutPlanDetails\` com o \`planId\` para entender o plano e sugerir um ajuste.
-5. **Seja Direto**: Não peça permissão para analisar o treino. Apenas faça a análise e apresente a sugestão de ajuste.
-6. **Confirmação**: Só use \`updateWorkoutDay\` se o usuário concordar explicitamente com a troca sugerida.
+1. **Seja Direto**: Não use introduções longas como "Entendi seu problema" ou "Vou verificar". Vá direto ao ponto e à solução.
+2. **Treinos em Tópicos**: Sempre que descrever um treino, exercícios ou ajustes, use OBRIGATORIAMENTE uma lista em tópicos (bullet points) para facilitar a leitura.
+3. **NUNCA peça os exercícios ao usuário**: Você tem a ferramenta getTodayWorkout para isso.
+4. **SEMPRE use ferramentas primeiro**: Se o usuário falar de dor, cansaço ou pedir ajuste, você DEVE chamar a ferramenta getTodayWorkout antes de dar qualquer resposta textual.
+5. **Análise de Dados**: Ao receber o resultado de getTodayWorkout, analise a lista de exercícios. MAS, se o usuário mencionar "dor" ou "cansaço", ANTES de sugerir ajustes, VOCÊ DEVE PERGUNTAR ESPECIFICAMENTE ONDE ELE ESTÁ SENTINDO DOR (ex: "Onde você está sentindo dor hoje? Joelho, coluna, ombro, etc?") ou se o cansaço é generalizado. NÃO SUGIRA NENHUMA ALTERAÇÃO SEM SABER EXATAMENTE A LOCALIZAÇÃO DA DOR.
+6. **Falta de Treino hoje**: Se getTodayWorkout indicar que não há treino para hoje, use getWorkoutPlanDetails com o planId para entender o plano e sugerir um ajuste.
+7. **SUGESTÕES APENAS, NÃO ALTERAÇÕES**: Você NÃO ALTERA o treino do usuário na tela inicial. Você APENAS SUGERE ajustes e mostra o treino ideal na conversa. Não mencione ferramentas de alteração.
 
 Responda de forma curta, motivadora e direta. Não diga "Vou verificar seu treino", apenas verifique e responda com a solução.`;
 
@@ -71,6 +71,10 @@ export const aiRoutes = async (app: FastifyInstance) => {
       // O useChat do Vercel AI SDK envia 'messages' no corpo
       const messages = body.messages || [];
       const coreMessages = await convertToModelMessages(messages);
+      
+      // Debug log para ver o que está sendo enviado
+      console.log('[AI DEBUG] messages recebidas:', JSON.stringify(messages, null, 2));
+      console.log('[AI DEBUG] coreMessages:', JSON.stringify(coreMessages, null, 2));
 
       console.log(`[AI REQUEST] Usuário: ${userId} | Provedor: ${providerRequested} | Mensagens: ${coreMessages.length}`);
 
@@ -132,7 +136,7 @@ export const aiRoutes = async (app: FastifyInstance) => {
               execute: async () => {
                 console.log(`[TOOL] Executando getTodayWorkout para ${userId}`);
                 try {
-                  const today = dayjs().format("YYYY-MM-DD");
+                  const today = dayjs().subtract(4, "hour").format("YYYY-MM-DD"); // Aplica o buffer de 4h também aqui
                   const homeData = await new GetHomeData().execute({ userId, date: today });
                   
                   if ("status" in homeData && homeData.status === 428) {
@@ -211,25 +215,6 @@ export const aiRoutes = async (app: FastifyInstance) => {
                 } catch (error: any) {
                   return { error: "Erro ao buscar detalhes do plano: " + error.message };
                 }
-              },
-            }),
-            updateWorkoutDay: (tool as any)({
-              description: "Atualiza um dia de treino específico (troca exercícios, muda nome ou define como descanso).",
-              parameters: z.object({ 
-                workoutDayId: z.string().describe("O ID do dia obtido via getTodayWorkout"), 
-                name: z.string().optional(), 
-                isRest: z.boolean().optional(),
-                exercises: z.array(z.object({ 
-                  name: z.string(), 
-                  sets: z.number(), 
-                  reps: z.number(), 
-                  restTimeInSeconds: z.number(), 
-                  order: z.number() 
-                })).optional() 
-              }),
-              execute: async (params: any) => {
-                console.log(`[TOOL] Executando updateWorkoutDay para ${userId}`);
-                return new UpdateWorkoutDay().execute({ userId, ...params });
               },
             }),
             getWorkoutPlans: (tool as any)({

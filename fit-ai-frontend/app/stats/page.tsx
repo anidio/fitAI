@@ -42,8 +42,10 @@ export default async function StatsPage() {
 
   // Se o personal ainda não atribuiu treino, renderizamos a tela com dados zerados de forma amigável
   const hasNoStats = statsResponse.status !== 200;
+  const hasHomeData = homeData.status === 200;
 
-  const workoutStreak = hasNoStats ? 0 : statsResponse.data.workoutStreak;
+  // Usa o streak do homeData (que funciona!), e o resto do statsResponse
+  const workoutStreak = hasHomeData ? homeData.data.workoutStreak : 0;
   const consistencyByDay = hasNoStats ? {} : statsResponse.data.consistencyByDay;
   const completedWorkoutsCount = hasNoStats ? 0 : statsResponse.data.completedWorkoutsCount;
   const conclusionRate = hasNoStats ? 0 : statsResponse.data.conclusionRate;

@@ -79,43 +79,39 @@ export function StatsHeatmap({ consistencyByDay, today }: StatsHeatmapProps) {
   const monthGroups = buildMonthGroups(today);
 
   return (
-    <div className="flex gap-1 overflow-x-auto rounded-xl border border-border p-5">
+    <div className="flex gap-4 md:gap-6 overflow-x-auto rounded-xl border border-border p-5 w-full justify-start md:justify-between lg:justify-around bg-card">
       {monthGroups.map((group) => (
-        <div key={group.label} className="flex flex-col gap-1.5">
-          <p className="font-heading text-xs text-muted-foreground">
+        <div key={group.label} className="flex flex-col gap-2 shrink-0 md:shrink">
+          <p className="font-heading text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             {group.label}
           </p>
-          <div className="flex gap-1">
+          <div className="flex gap-1 sm:gap-1.5 md:gap-2">
             {group.weeks.map((week) => {
               const weekKey = week.dates[0].format("YYYY-MM-DD");
               return (
-                <div key={weekKey} className="flex flex-col gap-1">
+                <div key={weekKey} className="flex flex-col gap-1 sm:gap-1.5 md:gap-2">
                   {week.dates.map((date) => {
                     const dateStr = date.format("YYYY-MM-DD");
                     const dayData = consistencyByDay[dateStr];
 
+                    let bgClass = "border border-border bg-transparent";
                     if (dayData?.workoutDayCompleted) {
-                      return (
-                        <div
-                          key={dateStr}
-                          className="size-5 rounded-md bg-primary"
-                        />
-                      );
-                    }
-
-                    if (dayData?.workoutDayStarted) {
-                      return (
-                        <div
-                          key={dateStr}
-                          className="size-5 rounded-md bg-primary/20"
-                        />
-                      );
+                      bgClass = "bg-primary text-primary-foreground border-transparent";
+                    } else if (dayData?.workoutDayStarted) {
+                      bgClass = "bg-primary/20 text-primary border-primary/20";
                     }
 
                     return (
                       <div
                         key={dateStr}
-                        className="size-5 rounded-md border border-border"
+                        className={`size-5 sm:size-6 md:size-7 lg:size-8 shrink-0 rounded-md transition-all duration-200 ${bgClass}`}
+                        title={`${date.format("DD/MM/YYYY")} - ${
+                          dayData?.workoutDayCompleted
+                            ? "Treino Concluído"
+                            : dayData?.workoutDayStarted
+                            ? "Treino Iniciado"
+                            : "Sem Treino"
+                        }`}
                       />
                     );
                   })}

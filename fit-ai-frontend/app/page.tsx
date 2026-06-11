@@ -38,7 +38,9 @@ export default async function Home() {
   }
 
   const today = dayjs();
-  const homeData = await getHomeData(today.format("YYYY-MM-DD"));
+  // Regra: O dia de treino vira apenas às 04:00 da manhã.
+  const fitnessDay = today.subtract(4, "hour");
+  const homeData = await getHomeData(fitnessDay.format("YYYY-MM-DD"));
 
   // REGRA AJUSTADA (Ajuste 2): Se a academia foi selecionada mas o personal ainda não vinculou o treino
   if (homeData.status !== 200) {

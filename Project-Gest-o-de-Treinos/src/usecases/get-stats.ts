@@ -38,26 +38,15 @@ interface OutputDto {
 
 export class GetStats {
   async execute(dto: InputDto): Promise<OutputDto> {
-    const fromDate = dayjs.utc(dto.from).startOf("day");
-    const toDate = dayjs.utc(dto.to).endOf("day");
-
-    const workoutPlan = await prisma.workoutPlan.findFirst({
-      where: { userId: dto.userId, isActive: true },
-      include: {
-        workoutDays: {
-          include: { sessions: true },
-        },
-      },
-    });
-
-    if (!workoutPlan) {
-      throw new NotFoundError("Active workout plan not found");
-    }
+    const fromDate = dayjs(dto.from).startOf("day");
+    const toDate = dayjs(dto.to).endOf("day");
 
     const sessions = await prisma.workoutSession.findMany({
       where: {
         workoutDay: {
-          workoutPlanId: workoutPlan.id,
+          workoutPlan: {
+            userId: dto.userId,
+          },
         },
         startedAt: {
           gte: fromDate.toDate(),
@@ -72,7 +61,8 @@ export class GetStats {
     > = {};
 
     sessions.forEach((session: { startedAt: Date | string; completedAt: Date | null }) => {
-      const dateKey = dayjs.utc(session.startedAt).format("YYYY-MM-DD");
+      // Consideramos a regra de 4h para consistência também no histórico
+      const dateKey = dayjs(session.startedAt).subtract(4, "hour").format("YYYY-MM-DD");
 
       if (!consistencyByDay[dateKey]) {
         consistencyByDay[dateKey] = {
@@ -97,18 +87,21 @@ export class GetStats {
 
     const totalTimeInSeconds = completedSessions.reduce(
       (total: number, session: { startedAt: Date | string; completedAt: Date | null }) => {
-        const start = dayjs.utc(session.startedAt);
-        const end = dayjs.utc(session.completedAt!);
+        const start = dayjs(session.startedAt);
+        const end = dayjs(session.completedAt!);
         return total + end.diff(start, "second");
       },
       0,
     );
 
-    const workoutStreak = await this.calculateStreak(
-      workoutPlan.id,
-      workoutPlan.workoutDays,
-      toDate,
-    );
+    const activePlan = await prisma.workoutPlan.findFirst({
+      where: { userId: dto.userId, isActive: true },
+      include: { workoutDays: true },
+    });
+
+    const workoutStreak = activePlan 
+      ? await this.calculateStreak(dto.userId, activePlan.workoutDays, toDate)
+      : 0;
 
     return {
       workoutStreak,
@@ -120,7 +113,7 @@ export class GetStats {
   }
 
   private async calculateStreak(
-    workoutPlanId: string,
+    userId: string,
     workoutDays: Array<{
       weekDay: string;
       isRest: boolean;
@@ -134,7 +127,9 @@ export class GetStats {
 
     const allSessions = await prisma.workoutSession.findMany({
       where: {
-        workoutDay: { workoutPlanId },
+        workoutDay: {
+          workoutPlan: { userId },
+        },
         completedAt: { not: null },
       },
       select: { startedAt: true },
@@ -142,12 +137,12 @@ export class GetStats {
 
     const completedDates = new Set(
       allSessions.map((s: { startedAt: Date | string }) =>
-        dayjs.utc(s.startedAt).format("YYYY-MM-DD"),
+        dayjs(s.startedAt).subtract(4, "hour").format("YYYY-MM-DD"),
       ),
     );
 
     let streak = 0;
-    let day = currentDate;
+    let day = currentDate.subtract(4, "hour"); // Aplica o buffer de 4h também para o streak
 
     for (let i = 0; i < 365; i++) {
       const weekDay = WEEKDAY_MAP[day.day()];

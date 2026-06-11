@@ -26,14 +26,14 @@ export const UpdateWorkoutSessionSchema = z.object({
 });
 
 export const StatsQuerySchema = z.object({
-  from: z.string().datetime(),
-  to: z.string().datetime(),
+  from: z.string(),
+  to: z.string(),
 });
 
 export const StatsSchema = z.object({
   workoutStreak: z.number(),
   consistencyByDay: z.record(
-    z.string().datetime(),
+    z.string(),
     z.object({
       workoutDayCompleted: z.boolean(),
       workoutDayStarted: z.boolean(),

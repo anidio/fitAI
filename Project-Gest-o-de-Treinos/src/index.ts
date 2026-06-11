@@ -94,6 +94,18 @@ app.route({
   method: ["GET", "POST", "OPTIONS"],
   url: "/api/auth/*",
   async handler(request, reply) {
+    const origin = request.headers.origin;
+    if (origin && (origin === "http://localhost:3000" || origin === "https://fit-ai-bhv2.vercel.app")) {
+      reply.header("Access-Control-Allow-Origin", origin);
+      reply.header("Access-Control-Allow-Credentials", "true");
+      reply.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+      reply.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Cookie, X-AI-Provider");
+    }
+
+    if (request.method === "OPTIONS") {
+      return reply.status(204).send();
+    }
+
     const protocol = (request.headers["x-forwarded-proto"] as string) || "http";
     const url = new URL(request.url, `${protocol}://${request.headers.host}`);
 
@@ -105,7 +117,6 @@ app.route({
     const req = new Request(url.toString(), {
       method: request.method,
       headers,
-      // 🌟 CORREÇÃO: Enviando o body como JSON puro, sem stringify redundante
       body: request.method !== "GET" ? JSON.stringify(request.body) : null,
     });
 

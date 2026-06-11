@@ -12,6 +12,8 @@ export async function startWorkoutAction(
 ) {
   await startWorkoutSession(workoutPlanId, workoutDayId);
   revalidatePath(`/workout-plans/${workoutPlanId}/days/${workoutDayId}`);
+  revalidatePath("/");
+  revalidatePath("/stats");
 }
 
 export async function completeWorkoutAction(
@@ -23,4 +25,6 @@ export async function completeWorkoutAction(
     completedAt: new Date().toISOString(),
   });
   revalidatePath(`/workout-plans/${workoutPlanId}/days/${workoutDayId}`);
+  revalidatePath("/");
+  revalidatePath("/stats");
 }

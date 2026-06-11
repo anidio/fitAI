@@ -66,6 +66,9 @@ export function Chat({ embedded = false, initialMessage }: ChatProps) {
       api: `${baseUrl}/ai?provider=${chatParams.ai_provider}`,
       credentials: "include",
     }),
+    onFinish: () => {
+      router.refresh();
+    },
   });
 
   useEffect(() => {
